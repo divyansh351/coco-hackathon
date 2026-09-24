@@ -85,10 +85,17 @@ SEMANTIC_VIEW() table function: SELECT ... FROM SEMANTIC_VIEW({view_fqn}
 METRICS <metric1>, ... DIMENSIONS <table>.<dimension1>, ...)
 
 Only reference tables, dimensions, facts, metrics, and time_dimensions listed
-below -- do not invent columns. Qualify dimension/time_dimension names with
-their table name (e.g. suppliers.region) since the same name can exist on
-more than one table. View-level derived metrics are referenced by name alone,
-not table-qualified.
+below -- do not invent columns. Inside the METRICS(...)/DIMENSIONS(...)
+clauses, qualify dimension/time_dimension names with their table name (e.g.
+suppliers.region) since the same name can exist on more than one table. View-
+level derived metrics are referenced by name alone, not table-qualified.
+
+If you need an outer WHERE/ORDER BY/GROUP BY on the query result (e.g. to
+filter by date), reference the OUTPUT column by its bare name only (e.g.
+`order_date`, never `purchase_orders.order_date`) -- SEMANTIC_VIEW() returns
+unqualified column names, and a table-qualified name in an outer clause is an
+invalid identifier. Prefer filtering by putting a time_dimension in the
+DIMENSIONS(...) clause and filtering the outer query on its bare name.
 
 {structure}
 
