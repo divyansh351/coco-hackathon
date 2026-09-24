@@ -80,7 +80,7 @@ with tab_onboard:
                     st.code(result["view_yaml"], language="yaml")
 
 with tab_ask:
-    st.subheader("Ask a question about a deployed semantic view")
+    st.subheader("Ask questions about a deployed semantic view")
     cur = get_cursor()
 
     database_for_search = st.text_input("Database to search for semantic views", value="SC_DEMO")
@@ -94,27 +94,55 @@ with tab_ask:
         st.warning("No semantic views found (or none visible to this role).")
     else:
         selected_view = st.selectbox("Semantic view", views)
-        question = st.text_input(
-            "Question",
-            placeholder="e.g. What is the overall fill rate?",
-        )
-        if st.button("Ask", type="primary") and question:
-            with st.spinner("Generating and running SQL..."):
-                try:
-                    sql, cols, rows = qa.ask(cur, selected_view, question)
-                except Exception as e:
-                    st.error(f"Could not answer: {e}")
-                    sql, cols, rows = None, None, None
 
-            if sql:
-                with st.expander("Generated SQL", expanded=False):
-                    st.code(sql, language="sql")
-                if rows:
-                    df = pd.DataFrame(rows, columns=cols)
-                    st.dataframe(df, use_container_width=True)
-                    numeric_cols = df.select_dtypes(include="number").columns.tolist()
-                    if len(df) > 1 and len(numeric_cols) >= 1 and len(df.columns) - len(numeric_cols) == 1:
-                        label_col = [c for c in df.columns if c not in numeric_cols][0]
-                        st.bar_chart(df.set_index(label_col)[numeric_cols])
+        if "chat_history" not in st.session_state:
+            st.session_state.chat_history = {}
+        if selected_view not in st.session_state.chat_history:
+            st.session_state.chat_history[selected_view] = []
+        history = st.session_state.chat_history[selected_view]
+
+        if st.button("Clear conversation"):
+            history.clear()
+            st.rerun()
+
+        for turn in history:
+            with st.chat_message("user"):
+                st.write(turn["question"])
+            with st.chat_message("assistant"):
+                if turn.get("error"):
+                    st.error(turn["error"])
                 else:
-                    st.info("Query returned no rows.")
+                    st.code(turn["sql"], language="sql")
+                    df = turn.get("df")
+                    if df is not None and not df.empty:
+                        st.dataframe(df, use_container_width=True)
+                        numeric_cols = df.select_dtypes(include="number").columns.tolist()
+                        if len(df) > 1 and len(numeric_cols) >= 1 and len(df.columns) - len(numeric_cols) == 1:
+                            label_col = [c for c in df.columns if c not in numeric_cols][0]
+                            st.bar_chart(df.set_index(label_col)[numeric_cols])
+                    else:
+                        st.info("Query returned no rows.")
+
+        question = st.chat_input("Ask a question, e.g. 'What is the overall fill rate?'")
+        if question:
+            with st.chat_message("user"):
+                st.write(question)
+            with st.chat_message("assistant"):
+                with st.spinner("Generating and running SQL..."):
+                    try:
+                        sql, cols, rows = qa.ask(cur, selected_view, question, history=history)
+                        df = pd.DataFrame(rows, columns=cols) if rows else pd.DataFrame(columns=cols)
+                        st.code(sql, language="sql")
+                        if not df.empty:
+                            st.dataframe(df, use_container_width=True)
+                            numeric_cols = df.select_dtypes(include="number").columns.tolist()
+                            if len(df) > 1 and len(numeric_cols) >= 1 and len(df.columns) - len(numeric_cols) == 1:
+                                label_col = [c for c in df.columns if c not in numeric_cols][0]
+                                st.bar_chart(df.set_index(label_col)[numeric_cols])
+                        else:
+                            st.info("Query returned no rows.")
+                        history.append({"question": question, "sql": sql, "df": df})
+                    except Exception as e:
+                        st.error(f"Could not answer: {e}")
+                        history.append({"question": question, "error": str(e)})
+

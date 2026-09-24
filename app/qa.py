@@ -75,10 +75,17 @@ def _extract_sql(text):
     raise ValueError(f"No SQL found in LLM response: {text[:300]}")
 
 
-def ask(cur, view_fqn, question):
-    """Returns (generated_sql, result_columns, result_rows)."""
+def ask(cur, view_fqn, question, history=None):
+    """history: optional list of {"question": ..., "sql": ...} from earlier
+    turns in the same chat, so follow-up questions ("and by region?") can be
+    resolved with context. Returns (generated_sql, result_columns, result_rows)."""
     desc_rows = describe_semantic_view(cur, view_fqn)
     structure = _summarize_structure(desc_rows)
+
+    history_block = ""
+    if history:
+        turns = "\n".join(f"- Q: {h['question']}\n  SQL: {h['sql']}" for h in history[-5:])
+        history_block = f"\nPrevious turns in this conversation (for context on follow-up questions):\n{turns}\n"
 
     prompt = f"""You write Snowflake SQL against a semantic view using the
 SEMANTIC_VIEW() table function: SELECT ... FROM SEMANTIC_VIEW({view_fqn}
@@ -98,8 +105,11 @@ invalid identifier. Prefer filtering by putting a time_dimension in the
 DIMENSIONS(...) clause and filtering the outer query on its bare name.
 
 {structure}
-
+{history_block}
 Question: {question}
+
+If the question is a follow-up (e.g. "and by region?", "what about last month?"),
+resolve it using the previous turns above into a complete, standalone query.
 
 Reply with ONLY the SQL query, no explanation, no markdown fences."""
 
