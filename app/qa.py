@@ -31,23 +31,40 @@ def describe_semantic_view(cur, view_fqn):
 
 
 def _summarize_structure(desc_rows):
-    """Build a compact, LLM-friendly text summary of tables, dimensions,
-    facts, metrics, time_dimensions, relationships, and view-level derived
-    metrics from DESCRIBE SEMANTIC VIEW output."""
+    """Build a compact, LLM-friendly text summary of tables, their PUBLIC
+    dimensions/facts/metrics, relationships, and view-level derived metrics.
+    PRIVATE facts (e.g. is_defect_free, lead_time_days) exist only to compose
+    metric expressions internally -- they are not valid in a DIMENSIONS(...)/
+    FACTS(...) clause and must be excluded, or the LLM will hallucinate a
+    query against them and get an invalid-identifier error."""
+    grouped = {}
+    for row in desc_rows:
+        if row["object_kind"] not in ("DIMENSION", "FACT", "METRIC"):
+            continue
+        key = (row["object_kind"], row["object_name"], row["parent_entity"])
+        grouped.setdefault(key, {})[row["property"]] = row["property_value"]
+
+    tables = {}
+    for (kind, name, table), props in grouped.items():
+        if props.get("ACCESS_MODIFIER") != "PUBLIC":
+            continue
+        bucket = {"DIMENSION": "dimensions", "FACT": "facts", "METRIC": "metrics"}[kind]
+        tables.setdefault(table, {"dimensions": [], "facts": [], "metrics": []})[bucket].append(name.lower())
+
     lines = []
+    for table, kinds in sorted(tables.items()):
+        parts = [f"table {table.lower()}:"]
+        for bucket in ("dimensions", "facts", "metrics"):
+            if kinds[bucket]:
+                parts.append(f"{bucket}=[{', '.join(sorted(kinds[bucket]))}]")
+        lines.append(" ".join(parts))
+
     for row in desc_rows:
         if row["object_kind"] == "EXTENSION" and row["property"] == "VALUE":
             try:
                 payload = json.loads(row["property_value"])
             except (ValueError, TypeError):
                 continue
-            for t in payload.get("tables", []):
-                parts = [f"table {t['name']}:"]
-                for kind in ("dimensions", "time_dimensions", "facts", "metrics"):
-                    names = [x["name"] for x in t.get(kind, [])]
-                    if names:
-                        parts.append(f"{kind}=[{', '.join(names)}]")
-                lines.append(" ".join(parts))
             rels = [r["name"] for r in payload.get("relationships", [])]
             if rels:
                 lines.append(f"relationships: {', '.join(rels)}")
@@ -83,19 +100,24 @@ def ask(cur, view_fqn, question, history=None):
     structure = _summarize_structure(desc_rows)
 
     history_block = ""
-    if history:
-        turns = "\n".join(f"- Q: {h['question']}\n  SQL: {h['sql']}" for h in history[-5:])
+    successful_turns = [h for h in (history or []) if h.get("sql")]
+    if successful_turns:
+        turns = "\n".join(f"- Q: {h['question']}\n  SQL: {h['sql']}" for h in successful_turns[-5:])
         history_block = f"\nPrevious turns in this conversation (for context on follow-up questions):\n{turns}\n"
 
     prompt = f"""You write Snowflake SQL against a semantic view using the
 SEMANTIC_VIEW() table function: SELECT ... FROM SEMANTIC_VIEW({view_fqn}
 METRICS <metric1>, ... DIMENSIONS <table>.<dimension1>, ...)
 
-Only reference tables, dimensions, facts, metrics, and time_dimensions listed
-below -- do not invent columns. Inside the METRICS(...)/DIMENSIONS(...)
-clauses, qualify dimension/time_dimension names with their table name (e.g.
-suppliers.region) since the same name can exist on more than one table. View-
-level derived metrics are referenced by name alone, not table-qualified.
+Only reference tables, dimensions, facts, and metrics listed below, using the
+EXACT names shown -- do not invent, pluralize, abbreviate, or guess variants
+of a name (e.g. the list below might say `segment`, not `customer_segment` --
+use exactly what's listed). Inside the METRICS(...)/DIMENSIONS(...) clauses,
+qualify dimension names with their table name (e.g. suppliers.region) since
+the same name can exist on more than one table. View-level derived metrics
+are referenced by name alone, not table-qualified. Only names listed below
+under a table are queryable -- there may be other columns on the underlying
+physical table that are NOT part of this semantic view and must not be used.
 
 If you need an outer WHERE/ORDER BY/GROUP BY on the query result (e.g. to
 filter by date), reference the OUTPUT column by its bare name only (e.g.
