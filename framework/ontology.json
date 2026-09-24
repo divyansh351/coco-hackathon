@@ -1,0 +1,110 @@
+{
+  "name": "supply_chain_ontology_v1",
+  "description": "Abstract ontology for supply chain onboarding. Generalized role structure: Consumer -> Demand -> Item <- Source, with Facility as a location node touching both Demand and Transaction, and Transaction fanning out from a Demand line to multiple fulfillments.",
+  "entities": [
+    {
+      "name": "Supplier",
+      "aliases": ["Vendor", "Source"],
+      "description": "The upstream party that fulfills demand lines by shipping goods.",
+      "role": "source",
+      "attributes": [
+        {"name": "supplier_id", "type_category": "id", "required": true, "is_primary_key": true, "synonyms": ["vendor_id", "supplier_no", "vendor_code"]},
+        {"name": "supplier_name", "type_category": "string", "required": true, "synonyms": ["vendor_name", "supplier_desc"]},
+        {"name": "country", "type_category": "string", "required": false, "synonyms": ["nation", "supplier_country"]},
+        {"name": "region", "type_category": "string", "required": false, "synonyms": ["geo", "supplier_region"]},
+        {"name": "tier", "type_category": "string", "required": false, "synonyms": ["classification", "supplier_class", "rating"]}
+      ]
+    },
+    {
+      "name": "Part",
+      "aliases": ["Item", "SKU", "Material"],
+      "description": "A distinct SKU/component/material that can be ordered from a supplier.",
+      "role": "item",
+      "attributes": [
+        {"name": "part_id", "type_category": "id", "required": true, "is_primary_key": true, "synonyms": ["item_id", "sku_id", "material_id", "part_no"]},
+        {"name": "part_name", "type_category": "string", "required": true, "synonyms": ["item_name", "material_desc", "description"]},
+        {"name": "category", "type_category": "string", "required": false, "synonyms": ["item_category", "material_group", "product_family"]},
+        {"name": "unit_cost", "type_category": "numeric", "required": false, "synonyms": ["cost", "unit_price", "standard_cost"]},
+        {"name": "is_critical", "type_category": "boolean", "required": false, "synonyms": ["is_critical_part", "critical_flag"]}
+      ]
+    },
+    {
+      "name": "Facility",
+      "aliases": ["Plant", "Warehouse", "DC"],
+      "description": "A location node that receives shipments and/or fulfills demand -- a plant, warehouse, or distribution center.",
+      "role": "location",
+      "attributes": [
+        {"name": "facility_id", "type_category": "id", "required": true, "is_primary_key": true, "synonyms": ["plant_id", "warehouse_id", "dc_id", "location_id"]},
+        {"name": "facility_name", "type_category": "string", "required": true, "synonyms": ["plant_name", "warehouse_name", "location_name"]},
+        {"name": "country", "type_category": "string", "required": false, "synonyms": ["facility_country", "plant_country"]},
+        {"name": "region", "type_category": "string", "required": false, "synonyms": ["facility_region", "plant_region"]}
+      ]
+    },
+    {
+      "name": "Customer",
+      "aliases": ["Consumer", "Account"],
+      "description": "The party that places demand (purchase orders).",
+      "role": "consumer",
+      "attributes": [
+        {"name": "customer_id", "type_category": "id", "required": true, "is_primary_key": true, "synonyms": ["account_id", "customer_no", "cust_id"]},
+        {"name": "customer_name", "type_category": "string", "required": true, "synonyms": ["account_name", "customer_desc"]},
+        {"name": "segment", "type_category": "string", "required": false, "synonyms": ["customer_segment", "account_tier", "customer_class"]},
+        {"name": "region", "type_category": "string", "required": false, "synonyms": ["customer_region", "account_region"]}
+      ]
+    },
+    {
+      "name": "Demand",
+      "aliases": ["Order", "PurchaseOrder", "SalesOrder"],
+      "description": "A demand header placed by a Customer against a Facility -- e.g. a purchase order.",
+      "role": "demand_header",
+      "attributes": [
+        {"name": "demand_id", "type_category": "id", "required": true, "is_primary_key": true, "synonyms": ["po_id", "order_id", "so_id"]},
+        {"name": "order_date", "type_category": "date", "required": true, "synonyms": ["po_date", "order_dt", "created_date"]},
+        {"name": "requested_delivery_date", "type_category": "date", "required": false, "synonyms": ["requested_date", "cust_req_date", "rdd"]},
+        {"name": "status", "type_category": "string", "required": false, "synonyms": ["order_status", "po_status"]}
+      ],
+      "foreign_keys": [
+        {"references_entity": "Customer", "required": true},
+        {"references_entity": "Facility", "required": true}
+      ]
+    },
+    {
+      "name": "DemandLine",
+      "aliases": ["OrderLine", "PurchaseOrderLine", "SalesOrderLine"],
+      "description": "A single line item of a Demand header, specifying an Item and an ordered quantity. Many-to-one to Demand.",
+      "role": "demand_line",
+      "attributes": [
+        {"name": "demand_line_id", "type_category": "id", "required": true, "is_primary_key": true, "synonyms": ["po_line_id", "order_line_id", "line_id"]},
+        {"name": "ordered_qty", "type_category": "numeric", "required": true, "synonyms": ["order_qty", "qty_ordered", "line_qty"]},
+        {"name": "unit_price", "type_category": "numeric", "required": false, "synonyms": ["price", "line_price"]}
+      ],
+      "foreign_keys": [
+        {"references_entity": "Demand", "required": true},
+        {"references_entity": "Part", "required": true}
+      ]
+    },
+    {
+      "name": "Transaction",
+      "aliases": ["Shipment", "Fulfillment", "Delivery"],
+      "description": "A physical fulfillment event (partial or full) of a DemandLine by a Supplier into a Facility. Many Transactions can fulfill one DemandLine (fan-out).",
+      "role": "transaction",
+      "attributes": [
+        {"name": "transaction_id", "type_category": "id", "required": true, "is_primary_key": true, "synonyms": ["shipment_id", "delivery_id", "fulfillment_id"]},
+        {"name": "ship_date", "type_category": "date", "required": false, "synonyms": ["shipped_date", "ship_dt"]},
+        {"name": "delivery_date", "type_category": "date", "required": true, "synonyms": ["actual_delivery_date", "received_date", "delivered_dt"]},
+        {"name": "promised_delivery_date", "type_category": "date", "required": true, "synonyms": ["promise_date", "eta", "committed_date"]},
+        {"name": "shipped_qty", "type_category": "numeric", "required": true, "synonyms": ["qty_shipped", "ship_qty"]},
+        {"name": "received_qty", "type_category": "numeric", "required": false, "synonyms": ["qty_received", "receipt_qty"]},
+        {"name": "defect_qty", "type_category": "numeric", "required": false, "synonyms": ["qty_defective", "reject_qty", "defective_qty"]}
+      ],
+      "foreign_keys": [
+        {"references_entity": "DemandLine", "required": true},
+        {"references_entity": "Supplier", "required": true},
+        {"references_entity": "Facility", "required": true}
+      ]
+    }
+  ],
+  "notes": {
+    "denormalization_warning": "Facility on Transaction is frequently a denormalized copy of Facility on Demand (reached transitively via DemandLine -> Demand). The mapping/instantiation engine must detect this via sampled-row agreement and NOT declare both a direct and a transitive relationship path to the same entity -- see implementation-findings.md Finding 2."
+  }
+}

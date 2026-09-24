@@ -1,0 +1,20 @@
+spec:
+  containers:
+  - name: supply-chain-app
+    image: /sc_demo/app/images/supply-chain-app:latest
+    env:
+      SNOWFLAKE_WAREHOUSE: COMPUTE_WH
+    resources:
+      requests:
+        memory: 1Gi
+        cpu: 500m
+      limits:
+        memory: 2Gi
+        cpu: 1000m
+    readinessProbe:
+      port: 8080
+      path: /
+  endpoints:
+  - name: streamlit
+    port: 8080
+    public: true

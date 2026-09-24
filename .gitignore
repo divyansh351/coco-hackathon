@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.cortex/
+framework/runs/*/
+!framework/runs/mapping_report.md
+!framework/runs/validation_report.md
+!framework/runs/generated_view.yaml
+!framework/runs/manifest_raw.json
+!framework/runs/mapping.json
+.tmp*
+*.env

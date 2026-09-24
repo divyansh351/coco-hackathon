@@ -1,0 +1,11 @@
+plant_id,plant_name,country,region,capacity_units_per_day
+1,Plant Chicago,USA,AMER,4121
+2,Plant Monterrey,Mexico,AMER,3892
+3,Plant Shenzhen,China,APAC,2737
+4,Plant Bangalore,India,APAC,2265
+5,Plant Osaka,Japan,APAC,4697
+6,Plant Stuttgart,Germany,EMEA,1432
+7,Plant Katowice,Poland,EMEA,3327
+8,Plant Manchester,UK,EMEA,4021
+9,Plant Sao Paulo,Brazil,AMER,1408
+10,Plant Izmir,Turkey,EMEA,2820

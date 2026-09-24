@@ -1,0 +1,144 @@
+{
+  "description": "Canonical metric templates (design doc Section 4). facts[] are row-level helper expressions owned by one entity; metrics[] are aggregate-level. A metric with kind='derived' MUST be emitted as a YAML top-level derived metric (never table-scoped) because it composes metrics owned by two different entities across a non-1:1 relationship -- see implementation-findings.md Finding 1. Placeholder syntax: {{Entity.attribute}} resolves to the mapped physical column expression on Entity's resolved logical table; {{Entity}} alone resolves to just the resolved logical table alias (lowercased).",
+
+  "variables": [
+    {"name": "on_time_tolerance_days", "data_type": "NUMBER", "default_value": "0", "description": "Days of grace period before a late delivery counts as late."}
+  ],
+
+  "facts": [
+    {
+      "name": "is_on_time",
+      "owning_entity": "Transaction",
+      "expr_template": "CASE WHEN {{Transaction.delivery_date}} <= DATEADD('day', on_time_tolerance_days, {{Transaction.promised_delivery_date}}) THEN 1.0 ELSE 0.0 END",
+      "data_type": "NUMBER",
+      "public": true,
+      "description": "Binary: 1 if delivered on or before the promised date (+ tolerance). Public so filters like 'late shipments' can use WHERE is_on_time = 0."
+    },
+    {
+      "name": "is_in_full",
+      "owning_entity": "Transaction",
+      "expr_template": "CASE WHEN {{Transaction.shipped_qty}} >= {{DemandLine.ordered_qty}} THEN 1.0 ELSE 0.0 END",
+      "data_type": "NUMBER",
+      "public": false,
+      "cross_entity_column_ref": true,
+      "cross_refs": [{"entity": "DemandLine", "attribute": "ordered_qty"}],
+      "description": "Binary: 1 if this transaction alone covers the full ordered quantity of its demand line. References DemandLine.ordered_qty directly -- valid because this is a row-level fact and DemandLine is at lower granularity (FK lookup), per Snowflake's row-level expression rules. NOTE: ordered_qty is otherwise only used inside SUM() aggregations, so it has no standalone row-level declaration on its own table by default -- cross_refs tells the instantiation engine to auto-generate a passthrough fact for it (see Finding in implementation-findings.md: 'invalid identifier' error otherwise)."
+    },
+    {
+      "name": "is_defect_free",
+      "owning_entity": "Transaction",
+      "expr_template": "CASE WHEN {{Transaction.defect_qty}} = 0 THEN 1.0 ELSE 0.0 END",
+      "data_type": "NUMBER",
+      "public": false,
+      "description": "Binary: 1 if no defects were found in this transaction."
+    },
+    {
+      "name": "lead_time_days",
+      "owning_entity": "Transaction",
+      "expr_template": "DATEDIFF('day', {{Demand.order_date}}, {{Transaction.delivery_date}})",
+      "data_type": "NUMBER",
+      "public": false,
+      "cross_entity_column_ref": true,
+      "description": "Days from order placement to this transaction's delivery. References Demand.order_date -- valid via the transitive FK path Transaction -> DemandLine -> Demand."
+    }
+  ],
+
+  "metrics": [
+    {
+      "name": "total_ordered_qty",
+      "kind": "simple",
+      "owning_entity": "DemandLine",
+      "expr_template": "SUM({{DemandLine.ordered_qty}})",
+      "description": "Total quantity ordered across demand lines."
+    },
+    {
+      "name": "total_order_value",
+      "kind": "simple",
+      "owning_entity": "DemandLine",
+      "expr_template": "SUM({{DemandLine.ordered_qty}} * {{DemandLine.unit_price}})",
+      "requires_optional_attrs": ["DemandLine.unit_price"],
+      "description": "Total order value (ordered_qty * unit_price)."
+    },
+    {
+      "name": "total_shipped_qty",
+      "kind": "simple",
+      "owning_entity": "Transaction",
+      "expr_template": "SUM({{Transaction.shipped_qty}})",
+      "description": "Total quantity shipped."
+    },
+    {
+      "name": "total_received_qty",
+      "kind": "simple",
+      "owning_entity": "Transaction",
+      "expr_template": "SUM({{Transaction.received_qty}})",
+      "requires_optional_attrs": ["Transaction.received_qty"],
+      "description": "Total quantity received."
+    },
+    {
+      "name": "shipment_count",
+      "kind": "simple",
+      "owning_entity": "Transaction",
+      "expr_template": "COUNT({{Transaction.transaction_id}})",
+      "description": "Number of transactions (shipments)."
+    },
+    {
+      "name": "on_time_delivery_rate",
+      "kind": "simple",
+      "owning_entity": "Transaction",
+      "expr_template": "AVG(is_on_time) * 100",
+      "depends_on_facts": ["is_on_time"],
+      "description": "Percentage of shipments delivered on or before the promised date."
+    },
+    {
+      "name": "otif_rate",
+      "kind": "simple",
+      "owning_entity": "Transaction",
+      "expr_template": "AVG(CASE WHEN is_on_time = 1.0 AND is_in_full = 1.0 THEN 1.0 ELSE 0.0 END) * 100",
+      "depends_on_facts": ["is_on_time", "is_in_full"],
+      "description": "Percentage of shipments that are both on-time and in-full (per-shipment grain). Debatable: could instead be defined per-order-line or per-order (see design doc Section 4)."
+    },
+    {
+      "name": "avg_lead_time_days",
+      "kind": "simple",
+      "owning_entity": "Transaction",
+      "expr_template": "AVG(lead_time_days)",
+      "depends_on_facts": ["lead_time_days"],
+      "description": "Average days from order placement to delivery."
+    },
+    {
+      "name": "supplier_defect_rate",
+      "kind": "simple",
+      "owning_entity": "Transaction",
+      "expr_template": "SUM({{Transaction.defect_qty}}) / NULLIF(SUM({{Transaction.received_qty}}), 0) * 100",
+      "requires_optional_attrs": ["Transaction.defect_qty", "Transaction.received_qty"],
+      "description": "Percentage of received units found defective. Debatable: unit-level (chosen) vs. shipment-level binary."
+    },
+    {
+      "name": "perfect_order_rate",
+      "kind": "simple",
+      "owning_entity": "Transaction",
+      "expr_template": "AVG(CASE WHEN is_on_time = 1.0 AND is_in_full = 1.0 AND is_defect_free = 1.0 THEN 1.0 ELSE 0.0 END) * 100",
+      "depends_on_facts": ["is_on_time", "is_in_full", "is_defect_free"],
+      "description": "Percentage of shipments that are on-time, in-full, and defect-free."
+    },
+    {
+      "name": "fill_rate",
+      "kind": "derived",
+      "components": [
+        {"entity": "Transaction", "metric": "total_shipped_qty"},
+        {"entity": "DemandLine", "metric": "total_ordered_qty"}
+      ],
+      "combine_expr_template": "{0} / NULLIF({1}, 0) * 100",
+      "relationship_grain": "one_to_many",
+      "description": "Ratio of total shipped quantity to total ordered quantity, as a percentage. MUST be a view-level derived metric: DemandLine -> Transaction is one-to-many, so composing this as a table-scoped metric owned by Transaction fans out (see implementation-findings.md Finding 1). Debatable variant: ratio-of-quantity (chosen) vs. binary per-line-complete."
+    },
+    {
+      "name": "order_cycle_time_days",
+      "kind": "nested_aggregate",
+      "owning_entity": "Demand",
+      "expr_template": "AVG(DATEDIFF('day', {{Demand.order_date}}, MAX({{Transaction}}.delivery_date)))",
+      "relationship_grain": "one_to_many",
+      "description": "Average days from order placement to the last (final) delivery for that order. Demand is coarser grain than Transaction (many transactions per order via DemandLine), so this uses nested aggregation (MAX per order, then AVG across orders) -- valid as a table-scoped metric per Snowflake's 'higher granularity reference' rule for metrics, unlike fill_rate which combines two independently-owned metrics."
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+You are mapping a physical database schema to an abstract data ontology entity.
+
+Ontology entity: Part (A distinct SKU/component/material that can be ordered from a supplier.)
+Expected attributes:
+  - part_id (id, required): synonyms=['item_id', 'sku_id', 'material_id', 'part_no']
+  - part_name (string, required): synonyms=['item_name', 'material_desc', 'description']
+  - category (string): synonyms=['item_category', 'material_group', 'product_family']
+  - unit_cost (numeric): synonyms=['cost', 'unit_price', 'standard_cost']
+  - is_critical (boolean): synonyms=['is_critical_part', 'critical_flag']
+
+Candidate physical tables (ranked by structural heuristics, may be wrong):
+Table: CUSTOMERS (primary_key=['CUSTOMER_ID'], row_count~100)
+  - CUSTOMER_ID (NUMBER): sample=[1.0, 100.0]
+  - CUSTOMER_NAME (TEXT): sample=['SMBCust-0058', 'SMBCust-0056', 'SMBCust-0017', 'MidMarketCust-0065', 'EnterpriseCust-0064']
+  - SEGMENT (TEXT): sample=['Mid-Market', 'Enterprise', 'SMB']
+  - REGION (TEXT): sample=['EMEA', 'AMER', 'APAC']
+
+Table: PARTS (primary_key=['PART_ID'], row_count~200)
+  - PART_ID (NUMBER): sample=[1.0, 200.0]
+  - PART_NAME (TEXT): sample=['RAW -0031', 'ELEC-0029', 'RAW -0010', 'PACK-0053', 'RAW -0039']
+  - CATEGORY (TEXT): sample=['Raw Materials', 'Electronics', 'Textiles', 'Packaging', 'Machined Components']
+  - UNIT_COST (NUMBER): sample=[1.34, 495.02]
+  - WEIGHT_KG (NUMBER): sample=[0.8, 48.68]
+  - IS_CRITICAL (BOOLEAN): sample=['False', 'True']
+  - PRIMARY_SUPPLIER_ID (NUMBER): sample=[1.0, 50.0]
+
+Table: PLANTS (primary_key=['PLANT_ID'], row_count~10)
+  - PLANT_ID (NUMBER): sample=[1.0, 10.0]
+  - PLANT_NAME (TEXT): sample=['Plant Stuttgart', 'Plant Shenzhen', 'Plant Sao Paulo', 'Plant Osaka', 'Plant Chicago']
+  - COUNTRY (TEXT): sample=['Mexico', 'India', 'Germany', 'Brazil', 'Japan']
+  - REGION (TEXT): sample=['EMEA', 'AMER', 'APAC']
+  - CAPACITY_UNITS_PER_DAY (NUMBER): sample=[1408.0, 4697.0]
+
+Pick the single best-matching table for this entity, and map each expected attribute name to the physical column name that best represents it (or null if no good match exists).
+Reply with ONLY a JSON object, no prose, no markdown fences, in exactly this shape:
+{"table": "<table_name>", "confidence": <0.0-1.0>, "attribute_mapping": {"<attr_name>": "<column_name_or_null>", ...}, "rationale": "<one sentence>"}

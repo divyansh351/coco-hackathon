@@ -1,0 +1,391 @@
+name: SUPPLY_CHAIN_ANALYTICS
+description: >
+  Governed supply chain analytics covering procurement, delivery, and quality
+  metrics across suppliers, parts, plants, orders, and customers. Use this
+  view to analyze fill rates, on-time delivery, OTIF, lead times, defect
+  rates, and perfect order rates. Supports drill-down by supplier tier,
+  part criticality, plant region, and time period.
+
+tables:
+  - name: suppliers
+    description: Suppliers that ship parts to plants against purchase order lines.
+    base_table:
+      database: SC_DEMO
+      schema: RAW
+      table: SUPPLIERS
+    primary_key:
+      columns: [supplier_id]
+    dimensions:
+      - name: supplier_name
+        expr: supplier_name
+        data_type: VARCHAR
+        description: Legal name of the supplier
+        synonyms: ["vendor name"]
+      - name: supplier_country
+        expr: country
+        data_type: VARCHAR
+        description: Country where the supplier is headquartered
+      - name: supplier_region
+        expr: region
+        data_type: VARCHAR
+        description: "Geographic region: APAC, EMEA, or AMER"
+        is_enum: true
+      - name: supplier_tier
+        expr: tier
+        data_type: VARCHAR
+        description: "Strategic classification: Strategic, Preferred, or Approved"
+        is_enum: true
+        synonyms: ["vendor tier", "classification"]
+
+  - name: parts
+    description: Distinct SKUs/components that can be ordered.
+    base_table:
+      database: SC_DEMO
+      schema: RAW
+      table: PARTS
+    primary_key:
+      columns: [part_id]
+    dimensions:
+      - name: part_name
+        expr: part_name
+        data_type: VARCHAR
+        description: Human-readable part identifier
+      - name: part_category
+        expr: category
+        data_type: VARCHAR
+        description: "Part category, e.g. Electronics, Fasteners, Packaging"
+        is_enum: true
+      - name: is_critical_part
+        expr: is_critical
+        data_type: BOOLEAN
+        description: Whether this part is classified as supply-critical
+        labels: [filter]
+
+  - name: plants
+    description: Manufacturing/assembly facilities that receive shipments and fulfill orders.
+    base_table:
+      database: SC_DEMO
+      schema: RAW
+      table: PLANTS
+    primary_key:
+      columns: [plant_id]
+    dimensions:
+      - name: plant_name
+        expr: plant_name
+        data_type: VARCHAR
+        description: Name of the manufacturing/assembly plant
+      - name: plant_country
+        expr: country
+        data_type: VARCHAR
+        description: Country where the plant is located
+      - name: plant_region
+        expr: region
+        data_type: VARCHAR
+        description: "Geographic region of the plant: APAC, EMEA, or AMER"
+        is_enum: true
+
+  - name: customers
+    description: Customers who place purchase orders against a plant.
+    base_table:
+      database: SC_DEMO
+      schema: RAW
+      table: CUSTOMERS
+    primary_key:
+      columns: [customer_id]
+    dimensions:
+      - name: customer_name
+        expr: customer_name
+        data_type: VARCHAR
+        description: Name of the customer placing orders
+      - name: customer_segment
+        expr: segment
+        data_type: VARCHAR
+        description: "Customer segment: Enterprise, Mid-Market, or SMB"
+        is_enum: true
+      - name: customer_region
+        expr: region
+        data_type: VARCHAR
+        description: Geographic region of the customer
+        is_enum: true
+
+  - name: purchase_orders
+    description: A customer purchase order placed against a plant.
+    base_table:
+      database: SC_DEMO
+      schema: RAW
+      table: PURCHASE_ORDERS
+    primary_key:
+      columns: [po_id]
+    dimensions:
+      - name: po_status
+        expr: po_status
+        data_type: VARCHAR
+        description: "Order status: Open, Shipped, Delivered, or Closed"
+        is_enum: true
+    time_dimensions:
+      - name: order_date
+        expr: order_date
+        data_type: DATE
+        description: Date the purchase order was placed
+      - name: order_month
+        expr: "DATE_TRUNC('month', order_date)"
+        data_type: DATE
+        description: Calendar month the purchase order was placed, for month-over-month trend analysis
+      - name: requested_delivery_date
+        expr: requested_delivery_date
+        data_type: DATE
+        description: Date the customer requested delivery
+    metrics:
+      # purchase_orders is at coarser grain than shipments (many shipments per order
+      # via po_lines), so this uses nested aggregation: MAX per order, then AVG across
+      # orders -- matches the "higher granularity reference" rule for metrics.
+      - name: order_cycle_time_days
+        expr: "AVG(DATEDIFF('day', order_date, MAX(shipments.delivery_date)))"
+        description: Average days from order placement to the last (final) delivery for that order
+
+  - name: po_lines
+    description: A line item on a purchase order specifying a part and ordered quantity.
+    base_table:
+      database: SC_DEMO
+      schema: RAW
+      table: PO_LINES
+    primary_key:
+      columns: [po_line_id]
+    facts:
+      - name: ordered_qty
+        expr: ordered_qty
+        data_type: NUMBER
+        description: Quantity ordered on this purchase order line
+      - name: unit_price
+        expr: unit_price
+        data_type: NUMBER
+    metrics:
+      - name: total_ordered_qty
+        expr: SUM(ordered_qty)
+        description: Total quantity ordered across purchase order lines
+      - name: total_order_value
+        expr: SUM(ordered_qty * unit_price)
+        description: Total order value (ordered_qty * unit_price)
+
+  - name: shipments
+    description: A physical shipment fulfilling (part of) an order line from a supplier to a plant.
+    base_table:
+      database: SC_DEMO
+      schema: RAW
+      table: SHIPMENTS
+    primary_key:
+      columns: [shipment_id]
+    time_dimensions:
+      - name: ship_date
+        expr: ship_date
+        data_type: DATE
+        description: Date the shipment left the supplier
+      - name: delivery_date
+        expr: delivery_date
+        data_type: DATE
+        description: Actual date goods were received at the plant
+      - name: promised_delivery_date
+        expr: promised_delivery_date
+        data_type: DATE
+        description: Date the supplier promised delivery
+    facts:
+      - name: shipped_qty
+        expr: shipped_qty
+        data_type: NUMBER
+      - name: received_qty
+        expr: received_qty
+        data_type: NUMBER
+      - name: defect_qty
+        expr: defect_qty
+        data_type: NUMBER
+      - name: is_on_time
+        expr: "CASE WHEN delivery_date <= DATEADD('day', on_time_tolerance_days, promised_delivery_date) THEN 1.0 ELSE 0.0 END"
+        data_type: NUMBER
+        description: "Binary: 1 if delivered on or before the promised date (+ tolerance). Public (filterable) so persona questions like 'late shipments last week' can filter WHERE is_on_time = 0."
+      - name: is_in_full
+        expr: "CASE WHEN shipped_qty >= po_lines.ordered_qty THEN 1.0 ELSE 0.0 END"
+        data_type: NUMBER
+        access_modifier: private_access
+        description: "Binary: 1 if this shipment alone covers the full ordered quantity of its line"
+      - name: is_defect_free
+        expr: "CASE WHEN defect_qty = 0 THEN 1.0 ELSE 0.0 END"
+        data_type: NUMBER
+        access_modifier: private_access
+        description: "Binary: 1 if no defects were found in this shipment"
+      - name: lead_time_days
+        expr: "DATEDIFF('day', purchase_orders.order_date, delivery_date)"
+        data_type: NUMBER
+        access_modifier: private_access
+        description: "Days from order placement to this shipment's delivery"
+    metrics:
+      - name: total_shipped_qty
+        expr: SUM(shipped_qty)
+        description: Total quantity shipped
+      - name: total_received_qty
+        expr: SUM(received_qty)
+        description: Total quantity received
+      - name: total_defect_qty
+        expr: SUM(defect_qty)
+        description: Total defective units received
+      - name: shipment_count
+        expr: COUNT(shipment_id)
+        description: Number of shipments
+      - name: on_time_delivery_rate
+        expr: AVG(is_on_time) * 100
+        description: Percentage of shipments delivered on or before the promised date
+      - name: otif_rate
+        expr: "AVG(CASE WHEN is_on_time = 1.0 AND is_in_full = 1.0 THEN 1.0 ELSE 0.0 END) * 100"
+        description: Percentage of shipments that are both on-time and in-full (per-shipment grain)
+      - name: avg_lead_time_days
+        expr: AVG(lead_time_days)
+        description: Average days from order placement to delivery
+      - name: supplier_defect_rate
+        expr: "SUM(defect_qty) / NULLIF(SUM(received_qty), 0) * 100"
+        description: Percentage of received units found defective
+      - name: perfect_order_rate
+        expr: "AVG(CASE WHEN is_on_time = 1.0 AND is_in_full = 1.0 AND is_defect_free = 1.0 THEN 1.0 ELSE 0.0 END) * 100"
+        description: Percentage of shipments that are on-time, in-full, and defect-free
+
+relationships:
+  - name: po_to_customer
+    left_table: purchase_orders
+    right_table: customers
+    relationship_columns:
+      - left_column: customer_id
+        right_column: customer_id
+  - name: po_to_plant
+    left_table: purchase_orders
+    right_table: plants
+    relationship_columns:
+      - left_column: plant_id
+        right_column: plant_id
+  - name: po_line_to_po
+    left_table: po_lines
+    right_table: purchase_orders
+    relationship_columns:
+      - left_column: po_id
+        right_column: po_id
+  - name: po_line_to_part
+    left_table: po_lines
+    right_table: parts
+    relationship_columns:
+      - left_column: part_id
+        right_column: part_id
+  - name: shipment_to_po_line
+    left_table: shipments
+    right_table: po_lines
+    relationship_columns:
+      - left_column: po_line_id
+        right_column: po_line_id
+  - name: shipment_to_supplier
+    left_table: shipments
+    right_table: suppliers
+    relationship_columns:
+      - left_column: supplier_id
+        right_column: supplier_id
+  # NOTE: shipments.plant_id is a denormalized copy of purchase_orders.plant_id
+  # (every shipment's plant_id is set equal to its PO's plant_id in the source
+  # data -- see scripts/generate_synthetic_data.py gen_shipments). Deliberately
+  # NOT declaring a direct shipment-to-plant relationship here: plants is already
+  # reachable from shipments via the transitive path
+  # shipments -> po_lines -> purchase_orders -> plants. Declaring BOTH a direct
+  # and an indirect path creates a genuine multi-path relationship ambiguity
+  # (Snowflake rejects dimension/metric queries that mix plants with shipments
+  # with "Multi-path relationship ... is not supported"). See design doc
+  # Section 4/8 for the empirical finding.
+
+variables:
+  - name: on_time_tolerance_days
+    data_type: NUMBER
+    default_value: "0"
+    description: "Days of grace period before a late delivery counts as late. 0 = strict on-or-before-promise."
+
+# View-scoped derived metric: combines metrics from two DIFFERENT logical tables
+# (shipments and po_lines) that have a one-to-many relationship. This is the ONLY
+# correct way to avoid the fan-out bug: a table-scoped metric (e.g. shipments.fill_rate
+# referencing po_lines.total_ordered_qty) was empirically verified to fan out and
+# silently return the wrong number (65.8% instead of the correct 81.76% on this
+# dataset), because Snowflake evaluates a table-scoped metric within that table's own
+# join context. A view-level derived metric instead combines two independently and
+# correctly pre-aggregated metrics. See design doc Section 4/5/8 for the full story.
+metrics:
+  - name: fill_rate
+    expr: "shipments.total_shipped_qty / NULLIF(po_lines.total_ordered_qty, 0) * 100"
+    description: Ratio of total shipped quantity to total ordered quantity, as a percentage
+
+verified_queries:
+  - name: overall_fill_rate
+    question: "What's our overall fill rate this quarter?"
+    sql: "SELECT fill_rate FROM SEMANTIC_VIEW(__supply_chain_analytics METRICS fill_rate)"
+    use_as_onboarding_question: true
+  - name: fill_rate_percentage_orders_filling
+    question: "What percentage of orders are we filling?"
+    sql: "SELECT fill_rate FROM SEMANTIC_VIEW(__supply_chain_analytics METRICS fill_rate)"
+  - name: worst_on_time_suppliers
+    question: "Which suppliers have the worst on-time delivery?"
+    sql: "SELECT supplier_name, on_time_delivery_rate FROM SEMANTIC_VIEW(__supply_chain_analytics DIMENSIONS supplier_name METRICS on_time_delivery_rate) ORDER BY on_time_delivery_rate ASC"
+  - name: consistently_late_suppliers
+    question: "Which suppliers are consistently late?"
+    sql: "SELECT supplier_name, on_time_delivery_rate FROM SEMANTIC_VIEW(__supply_chain_analytics DIMENSIONS supplier_name METRICS on_time_delivery_rate) ORDER BY on_time_delivery_rate ASC"
+  - name: otif_trend_by_month
+    question: "Show me OTIF trends month over month for the last year"
+    sql: "SELECT order_month, otif_rate FROM SEMANTIC_VIEW(__supply_chain_analytics DIMENSIONS order_month METRICS otif_rate) ORDER BY order_month"
+  - name: perfect_order_rate_by_region
+    question: "What's our perfect order rate by region?"
+    sql: "SELECT plant_region, perfect_order_rate FROM SEMANTIC_VIEW(__supply_chain_analytics DIMENSIONS plant_region METRICS perfect_order_rate)"
+  - name: highest_defect_plants
+    question: "Which plants have the highest defect rates?"
+    sql: "SELECT plant_name, supplier_defect_rate FROM SEMANTIC_VIEW(__supply_chain_analytics DIMENSIONS plant_name METRICS supplier_defect_rate) ORDER BY supplier_defect_rate DESC"
+  - name: defect_rate_by_supplier_for_plant
+    question: "What's the defect rate by supplier for parts delivered to Plant Chicago?"
+    sql: "SELECT supplier_name, supplier_defect_rate FROM SEMANTIC_VIEW(__supply_chain_analytics DIMENSIONS supplier_name METRICS supplier_defect_rate WHERE plant_name = 'Plant Chicago') ORDER BY supplier_defect_rate DESC"
+  - name: fill_rate_by_supplier_tier
+    question: "What's the fill rate by supplier tier?"
+    sql: "SELECT supplier_tier, fill_rate FROM SEMANTIC_VIEW(__supply_chain_analytics DIMENSIONS supplier_tier METRICS fill_rate)"
+  - name: defect_rate_critical_parts
+    question: "Show me defect rates for critical parts only"
+    sql: "SELECT supplier_defect_rate FROM SEMANTIC_VIEW(__supply_chain_analytics METRICS supplier_defect_rate WHERE is_critical_part = TRUE)"
+  - name: lead_time_by_supplier_tier
+    question: "How does lead time compare across our strategic vs. approved suppliers?"
+    sql: "SELECT supplier_tier, avg_lead_time_days FROM SEMANTIC_VIEW(__supply_chain_analytics DIMENSIONS supplier_tier METRICS avg_lead_time_days)"
+  - name: lead_time_apac_vs_emea
+    question: "What's the average lead time for APAC suppliers vs. EMEA?"
+    sql: "SELECT supplier_region, avg_lead_time_days FROM SEMANTIC_VIEW(__supply_chain_analytics DIMENSIONS supplier_region METRICS avg_lead_time_days)"
+  - name: po_count_by_supplier
+    question: "How many purchase orders went to each supplier last quarter?"
+    sql: "SELECT supplier_name, shipment_count FROM SEMANTIC_VIEW(__supply_chain_analytics DIMENSIONS supplier_name METRICS shipment_count)"
+  - name: order_value_by_part_category
+    question: "What's the total order value by part category?"
+    sql: "SELECT part_category, total_order_value FROM SEMANTIC_VIEW(__supply_chain_analytics DIMENSIONS part_category METRICS total_order_value)"
+  - name: on_time_rate_for_plant_chicago
+    question: "What's the on-time delivery rate for Plant Chicago this month?"
+    sql: "SELECT on_time_delivery_rate FROM SEMANTIC_VIEW(__supply_chain_analytics METRICS on_time_delivery_rate WHERE plant_name = 'Plant Chicago')"
+  - name: longest_lead_time_parts_for_plant
+    question: "Which parts have the longest lead times coming into my plant?"
+    sql: "SELECT part_name, avg_lead_time_days FROM SEMANTIC_VIEW(__supply_chain_analytics DIMENSIONS part_name METRICS avg_lead_time_days WHERE plant_name = 'Plant Chicago') ORDER BY avg_lead_time_days DESC"
+  - name: late_shipments_last_week
+    question: "How many shipments arrived late last week?"
+    sql: "SELECT shipment_count FROM SEMANTIC_VIEW(__supply_chain_analytics METRICS shipment_count WHERE is_on_time = 0.0 AND delivery_date >= DATEADD('day', -7, CURRENT_DATE()))"
+
+module_custom_instructions:
+  sql_generation: |
+    All percentage metrics (fill_rate, on_time_delivery_rate, otif_rate,
+    supplier_defect_rate, perfect_order_rate) are already expressed as
+    percentages (0-100). Do NOT multiply by 100 again.
+
+    When a question asks about "supplier performance", default to showing
+    fill_rate, on_time_delivery_rate, and supplier_defect_rate grouped by
+    supplier_name.
+
+    When a question asks about "delivery performance", default to showing
+    on_time_delivery_rate and otif_rate.
+
+    "Lead time" always means avg_lead_time_days unless explicitly qualified.
+
+    For time-based questions without an explicit date range, default to the
+    last 12 months of order_date.
+  question_categorization: |
+    If the user asks about inventory levels, stock on hand, or warehouse
+    capacity, respond that this semantic view covers order and shipment
+    metrics, not inventory snapshots, and that no inventory metric is
+    currently available in this view.

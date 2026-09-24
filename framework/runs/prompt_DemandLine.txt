@@ -1,0 +1,39 @@
+You are mapping a physical database schema to an abstract data ontology entity.
+
+Ontology entity: DemandLine (A single line item of a Demand header, specifying an Item and an ordered quantity. Many-to-one to Demand.)
+Expected attributes:
+  - demand_line_id (id, required): synonyms=['po_line_id', 'order_line_id', 'line_id']
+  - ordered_qty (numeric, required): synonyms=['order_qty', 'qty_ordered', 'line_qty']
+  - unit_price (numeric): synonyms=['price', 'line_price']
+
+Candidate physical tables (ranked by structural heuristics, may be wrong):
+Table: PO_LINES (primary_key=['PO_LINE_ID'], row_count~13992)
+  - PO_LINE_ID (NUMBER): sample=[1.0, 13992.0]
+  - PO_ID (NUMBER): sample=[1.0, 5000.0]
+  - PART_ID (NUMBER): sample=[1.0, 200.0]
+  - ORDERED_QTY (NUMBER): sample=[5.0, 1500.0]
+  - UNIT_PRICE (NUMBER): sample=[1.55, 789.42]
+
+Table: PURCHASE_ORDERS (primary_key=['PO_ID'], row_count~5000)
+  - PO_ID (NUMBER): sample=[1.0, 5000.0]
+  - CUSTOMER_ID (NUMBER): sample=[1.0, 100.0]
+  - PLANT_ID (NUMBER): sample=[1.0, 10.0]
+  - ORDER_DATE (DATE): sample=['2025-04-01', '2026-09-24']
+  - REQUESTED_DELIVERY_DATE (DATE): sample=['2025-04-12', '2026-11-05']
+  - PO_STATUS (TEXT): sample=['Closed', 'Delivered', 'Shipped', 'Open']
+
+Table: SHIPMENTS (primary_key=['SHIPMENT_ID'], row_count~17430)
+  - SHIPMENT_ID (NUMBER): sample=[1.0, 17430.0]
+  - PO_LINE_ID (NUMBER): sample=[1.0, 13992.0]
+  - SUPPLIER_ID (NUMBER): sample=[1.0, 50.0]
+  - PLANT_ID (NUMBER): sample=[1.0, 10.0]
+  - SHIP_DATE (DATE): sample=['2025-04-02', '2026-10-17']
+  - DELIVERY_DATE (DATE): sample=['2025-04-04', '2026-11-03']
+  - PROMISED_DELIVERY_DATE (DATE): sample=['2025-04-07', '2026-10-29']
+  - SHIPPED_QTY (NUMBER): sample=[1.0, 1559.0]
+  - RECEIVED_QTY (NUMBER): sample=[1.0, 1559.0]
+  - DEFECT_QTY (NUMBER): sample=[0.0, 155.0]
+
+Pick the single best-matching table for this entity, and map each expected attribute name to the physical column name that best represents it (or null if no good match exists).
+Reply with ONLY a JSON object, no prose, no markdown fences, in exactly this shape:
+{"table": "<table_name>", "confidence": <0.0-1.0>, "attribute_mapping": {"<attr_name>": "<column_name_or_null>", ...}, "rationale": "<one sentence>"}

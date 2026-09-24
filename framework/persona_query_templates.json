@@ -1,0 +1,93 @@
+{
+  "description": "Persona question templates from design doc Section 7, parameterized over ontology entities/metrics. dimension_entity refers to an ontology entity whose name/label attribute will be used as the DIMENSIONS clause; metric is a metric name from metric_templates.json.",
+  "queries": [
+    {
+      "name": "overall_fill_rate",
+      "question": "What's our overall fill rate this quarter?",
+      "metrics": ["fill_rate"],
+      "onboarding_question": true
+    },
+    {
+      "name": "fill_rate_percentage_orders_filling",
+      "question": "What percentage of orders are we filling?",
+      "metrics": ["fill_rate"]
+    },
+    {
+      "name": "worst_on_time_suppliers",
+      "question": "Which suppliers have the worst on-time delivery?",
+      "dimension_entity": "Supplier",
+      "dimension_attribute": "supplier_name",
+      "metrics": ["on_time_delivery_rate"],
+      "order_by": "on_time_delivery_rate ASC"
+    },
+    {
+      "name": "otif_trend_by_month",
+      "question": "Show me OTIF trends month over month for the last year",
+      "dimension_entity": "Demand",
+      "dimension_attribute": "order_month",
+      "metrics": ["otif_rate"],
+      "order_by": "order_month",
+      "requires_generated_month_dimension": true
+    },
+    {
+      "name": "perfect_order_rate_by_facility_region",
+      "question": "What's our perfect order rate by region?",
+      "dimension_entity": "Facility",
+      "dimension_attribute": "region",
+      "metrics": ["perfect_order_rate"]
+    },
+    {
+      "name": "highest_defect_facilities",
+      "question": "Which plants have the highest defect rates?",
+      "dimension_entity": "Facility",
+      "dimension_attribute": "facility_name",
+      "metrics": ["supplier_defect_rate"],
+      "order_by": "supplier_defect_rate DESC"
+    },
+    {
+      "name": "fill_rate_by_supplier_tier",
+      "question": "What's the fill rate by supplier tier?",
+      "dimension_entity": "Supplier",
+      "dimension_attribute": "tier",
+      "metrics": ["fill_rate"]
+    },
+    {
+      "name": "lead_time_by_supplier_tier",
+      "question": "How does lead time compare across our strategic vs. approved suppliers?",
+      "dimension_entity": "Supplier",
+      "dimension_attribute": "tier",
+      "metrics": ["avg_lead_time_days"]
+    },
+    {
+      "name": "lead_time_by_supplier_region",
+      "question": "What's the average lead time for APAC suppliers vs. EMEA?",
+      "dimension_entity": "Supplier",
+      "dimension_attribute": "region",
+      "metrics": ["avg_lead_time_days"]
+    },
+    {
+      "name": "shipment_count_by_supplier",
+      "question": "How many shipments went to each supplier?",
+      "dimension_entity": "Supplier",
+      "dimension_attribute": "supplier_name",
+      "metrics": ["shipment_count"],
+      "order_by": "shipment_count DESC"
+    },
+    {
+      "name": "order_value_by_part_category",
+      "question": "What's the total order value by part category?",
+      "dimension_entity": "Part",
+      "dimension_attribute": "category",
+      "metrics": ["total_order_value"],
+      "requires_optional_attrs": ["DemandLine.unit_price"]
+    },
+    {
+      "name": "shipment_count_by_facility",
+      "question": "How many shipments did each plant receive?",
+      "dimension_entity": "Facility",
+      "dimension_attribute": "facility_name",
+      "metrics": ["shipment_count"],
+      "order_by": "shipment_count DESC"
+    }
+  ]
+}

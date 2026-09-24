@@ -1,0 +1,51 @@
+supplier_id,supplier_name,country,region,tier,lead_time_days_contracted,reliability_score
+1,USASupply-001,USA,AMER,Strategic,13,0.891
+2,SouthSupply-002,South Korea,APAC,Preferred,18,0.886
+3,SouthSupply-003,South Korea,APAC,Approved,35,0.662
+4,TurkeySupply-004,Turkey,EMEA,Preferred,22,0.782
+5,BrazilSupply-005,Brazil,AMER,Preferred,6,0.65
+6,GermanySupply-006,Germany,EMEA,Preferred,19,0.99
+7,JapanSupply-007,Japan,APAC,Preferred,35,0.907
+8,TurkeySupply-008,Turkey,EMEA,Strategic,10,0.887
+9,GermanySupply-009,Germany,EMEA,Approved,20,0.832
+10,IndiaSupply-010,India,APAC,Preferred,26,0.772
+11,MexicoSupply-011,Mexico,AMER,Preferred,13,0.833
+12,IndiaSupply-012,India,APAC,Approved,19,0.869
+13,ItalySupply-013,Italy,EMEA,Preferred,13,0.876
+14,ItalySupply-014,Italy,EMEA,Strategic,13,0.99
+15,CanadaSupply-015,Canada,AMER,Approved,7,0.685
+16,BrazilSupply-016,Brazil,AMER,Strategic,7,0.946
+17,MexicoSupply-017,Mexico,AMER,Approved,12,0.754
+18,CanadaSupply-018,Canada,AMER,Approved,6,0.794
+19,CanadaSupply-019,Canada,AMER,Approved,5,0.744
+20,CanadaSupply-020,Canada,AMER,Approved,6,0.836
+21,CanadaSupply-021,Canada,AMER,Approved,7,0.727
+22,USASupply-022,USA,AMER,Approved,6,0.777
+23,UKSupply-023,UK,EMEA,Preferred,11,0.633
+24,SouthSupply-024,South Korea,APAC,Approved,22,0.883
+25,MexicoSupply-025,Mexico,AMER,Preferred,8,0.888
+26,CanadaSupply-026,Canada,AMER,Preferred,13,0.77
+27,GermanySupply-027,Germany,EMEA,Preferred,13,0.845
+28,ChinaSupply-028,China,APAC,Strategic,19,0.906
+29,IndiaSupply-029,India,APAC,Strategic,24,0.909
+30,BrazilSupply-030,Brazil,AMER,Preferred,11,0.949
+31,ChinaSupply-031,China,APAC,Strategic,32,0.824
+32,USASupply-032,USA,AMER,Strategic,6,0.935
+33,VietnamSupply-033,Vietnam,APAC,Strategic,26,0.821
+34,JapanSupply-034,Japan,APAC,Approved,35,0.807
+35,USASupply-035,USA,AMER,Approved,12,0.919
+36,PolandSupply-036,Poland,EMEA,Approved,12,0.711
+37,JapanSupply-037,Japan,APAC,Preferred,31,0.849
+38,BrazilSupply-038,Brazil,AMER,Strategic,5,0.814
+39,USASupply-039,USA,AMER,Approved,7,0.879
+40,SouthSupply-040,South Korea,APAC,Strategic,23,0.937
+41,VietnamSupply-041,Vietnam,APAC,Preferred,19,0.584
+42,TurkeySupply-042,Turkey,EMEA,Approved,14,0.743
+43,CanadaSupply-043,Canada,AMER,Preferred,10,0.735
+44,ChinaSupply-044,China,APAC,Preferred,21,0.903
+45,SouthSupply-045,South Korea,APAC,Preferred,25,0.981
+46,JapanSupply-046,Japan,APAC,Approved,27,0.713
+47,SouthSupply-047,South Korea,APAC,Preferred,22,0.732
+48,SouthSupply-048,South Korea,APAC,Strategic,27,0.738
+49,CanadaSupply-049,Canada,AMER,Preferred,5,0.788
+50,JapanSupply-050,Japan,APAC,Approved,19,0.733

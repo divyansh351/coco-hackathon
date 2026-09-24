@@ -1,0 +1,41 @@
+name: Deploy Supply Chain App to SPCS
+
+on:
+  workflow_dispatch: {}
+
+env:
+  SNOWFLAKE_ACCOUNT: rl10613.ap-southeast-7.aws
+  SNOWFLAKE_USER: DIVYANSH351
+  REGISTRY_HOST: obcksdw-uu60334.registry.snowflakecomputing.com
+  IMAGE_PATH: /sc_demo/app/images/supply-chain-app
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build --platform linux/amd64 -t supply-chain-app:latest .
+
+      - name: Log in to Snowflake image registry
+        run: |
+          echo "${{ secrets.SNOWFLAKE_PAT }}" | docker login "$REGISTRY_HOST" -u "$SNOWFLAKE_USER" --password-stdin
+
+      - name: Tag and push image
+        run: |
+          docker tag supply-chain-app:latest "$REGISTRY_HOST$IMAGE_PATH:latest"
+          docker push "$REGISTRY_HOST$IMAGE_PATH:latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install snowflake-connector-python
+        run: pip install snowflake-connector-python==3.12.3
+
+      - name: Create or update the SPCS service
+        env:
+          SNOWFLAKE_PAT: ${{ secrets.SNOWFLAKE_PAT }}
+        run: python scripts/deploy_service.py

@@ -1,0 +1,104 @@
+{
+  "database": "SC_DEMO",
+  "schema": "RAW",
+  "ontology": "supply_chain_ontology_v1",
+  "entities": {
+    "Supplier": {
+      "table": "SUPPLIERS",
+      "confidence": 0.7999999999999999,
+      "action": "flagged_for_review",
+      "pass": "1",
+      "rationale": "Pass 1 structural match decisive (score=0.80 vs runner-up 0.50)",
+      "attribute_mapping": {
+        "supplier_id": "SUPPLIER_ID",
+        "supplier_name": "SUPPLIER_NAME",
+        "country": "COUNTRY",
+        "region": "REGION",
+        "tier": "TIER"
+      }
+    },
+    "Facility": {
+      "table": "PLANTS",
+      "confidence": 0.7999999999999999,
+      "action": "flagged_for_review",
+      "pass": "1",
+      "rationale": "Pass 1 structural match decisive (score=0.80 vs runner-up 0.50)",
+      "attribute_mapping": {
+        "facility_id": "PLANT_ID",
+        "facility_name": "PLANT_NAME",
+        "country": "COUNTRY",
+        "region": "REGION"
+      }
+    },
+    "Customer": {
+      "table": "CUSTOMERS",
+      "confidence": 0.7999999999999999,
+      "action": "flagged_for_review",
+      "pass": "1",
+      "rationale": "Pass 1 structural match decisive (score=0.80 vs runner-up 0.50)",
+      "attribute_mapping": {
+        "customer_id": "CUSTOMER_ID",
+        "customer_name": "CUSTOMER_NAME",
+        "segment": "SEGMENT",
+        "region": "REGION"
+      }
+    },
+    "Demand": {
+      "table": "PURCHASE_ORDERS",
+      "confidence": 0.7999999999999999,
+      "action": "flagged_for_review",
+      "pass": "1",
+      "rationale": "Pass 1 structural match decisive (score=0.80 vs runner-up 0.50)",
+      "attribute_mapping": {
+        "demand_id": "PO_ID",
+        "order_date": "ORDER_DATE",
+        "requested_delivery_date": "REQUESTED_DELIVERY_DATE",
+        "status": "PO_STATUS"
+      }
+    },
+    "Transaction": {
+      "table": "SHIPMENTS",
+      "confidence": 0.7999999999999999,
+      "action": "flagged_for_review",
+      "pass": "1",
+      "rationale": "Pass 1 structural match decisive (score=0.80 vs runner-up 0.10)",
+      "attribute_mapping": {
+        "transaction_id": "SHIPMENT_ID",
+        "ship_date": "SHIP_DATE",
+        "delivery_date": "DELIVERY_DATE",
+        "promised_delivery_date": "PROMISED_DELIVERY_DATE",
+        "shipped_qty": "SHIPPED_QTY",
+        "received_qty": "RECEIVED_QTY",
+        "defect_qty": "DEFECT_QTY"
+      }
+    },
+    "Part": {
+      "table": "PARTS",
+      "confidence": 1.0,
+      "action": "auto_accept",
+      "pass": "2",
+      "rationale": "The PARTS table has exact matches for all five expected attributes of the Part entity.",
+      "attribute_mapping": {
+        "part_id": "PART_ID",
+        "part_name": "PART_NAME",
+        "category": "CATEGORY",
+        "unit_cost": "UNIT_COST",
+        "is_critical": "IS_CRITICAL"
+      }
+    },
+    "DemandLine": {
+      "table": "PO_LINES",
+      "confidence": 0.98,
+      "action": "auto_accept",
+      "pass": "2",
+      "rationale": "PO_LINES perfectly matches DemandLine with exact column names for all three expected attributes.",
+      "attribute_mapping": {
+        "demand_line_id": "PO_LINE_ID",
+        "ordered_qty": "ORDERED_QTY",
+        "unit_price": "UNIT_PRICE"
+      }
+    }
+  },
+  "cross_validation_issues": [],
+  "overall_status": "OK"
+}

@@ -1,0 +1,201 @@
+part_id,part_name,category,unit_cost,weight_kg,is_critical,primary_supplier_id
+1,TEXT-0001,Textiles,221.2,35.29,False,8
+2,ELEC-0002,Electronics,472.55,34.55,True,3
+3,PACK-0003,Packaging,291.46,7.41,True,20
+4,PACK-0004,Packaging,449.54,39.81,False,23
+5,FAST-0005,Fasteners,341.19,33.35,False,36
+6,RAW -0006,Raw Materials,486.93,37.48,False,16
+7,FAST-0007,Fasteners,488.11,40.54,False,2
+8,FAST-0008,Fasteners,368.41,16.62,False,43
+9,TEXT-0009,Textiles,405.47,13.35,False,7
+10,RAW -0010,Raw Materials,436.15,42.93,False,30
+11,PACK-0011,Packaging,152.94,39.77,False,2
+12,TEXT-0012,Textiles,96.97,16.42,False,50
+13,PACK-0013,Packaging,175.9,25.48,False,35
+14,PACK-0014,Packaging,469.65,5.78,False,12
+15,MACH-0015,Machined Components,481.29,13.28,True,28
+16,PACK-0016,Packaging,364.41,15.69,False,33
+17,ELEC-0017,Electronics,192.91,28.83,False,46
+18,RAW -0018,Raw Materials,1.34,46.28,False,47
+19,TEXT-0019,Textiles,368.65,9.86,False,43
+20,PACK-0020,Packaging,311.77,33.17,True,20
+21,MACH-0021,Machined Components,154.99,20.43,False,19
+22,MACH-0022,Machined Components,64.08,21.03,False,44
+23,TEXT-0023,Textiles,451.45,30.78,False,36
+24,ELEC-0024,Electronics,152.29,10.52,False,39
+25,TEXT-0025,Textiles,161.46,22.09,False,33
+26,RAW -0026,Raw Materials,396.97,47.99,False,43
+27,ELEC-0027,Electronics,142.25,33.2,False,6
+28,FAST-0028,Fasteners,336.56,11.24,False,2
+29,ELEC-0029,Electronics,122.8,23.76,False,5
+30,RAW -0030,Raw Materials,207.51,31.49,False,45
+31,RAW -0031,Raw Materials,247.44,12.21,False,1
+32,ELEC-0032,Electronics,389.32,10.95,False,45
+33,MACH-0033,Machined Components,232.54,27.87,False,8
+34,RAW -0034,Raw Materials,67.1,23.24,False,36
+35,MACH-0035,Machined Components,158.99,37.76,False,47
+36,MACH-0036,Machined Components,213.66,45.34,False,11
+37,TEXT-0037,Textiles,430.82,22.51,False,41
+38,PACK-0038,Packaging,383.02,26.07,False,18
+39,RAW -0039,Raw Materials,39.2,14.29,False,21
+40,MACH-0040,Machined Components,40.75,7.55,False,10
+41,TEXT-0041,Textiles,107.37,20.75,False,30
+42,RAW -0042,Raw Materials,31.6,41.65,False,50
+43,MACH-0043,Machined Components,473.06,0.99,False,37
+44,RAW -0044,Raw Materials,238.75,47.14,False,25
+45,RAW -0045,Raw Materials,269.34,36.73,False,15
+46,RAW -0046,Raw Materials,110.1,21.8,True,22
+47,TEXT-0047,Textiles,339.73,20.22,False,30
+48,FAST-0048,Fasteners,490.37,26.71,False,38
+49,MACH-0049,Machined Components,331.67,4.21,False,30
+50,FAST-0050,Fasteners,25.62,18.96,False,21
+51,PACK-0051,Packaging,380.73,18.96,False,27
+52,PACK-0052,Packaging,417.54,23.52,False,4
+53,PACK-0053,Packaging,112.5,3.44,False,3
+54,ELEC-0054,Electronics,474.83,9.98,True,10
+55,FAST-0055,Fasteners,63.55,33.48,False,14
+56,RAW -0056,Raw Materials,349.88,38.35,False,39
+57,TEXT-0057,Textiles,359.32,38.89,False,20
+58,ELEC-0058,Electronics,289.55,46.45,False,25
+59,RAW -0059,Raw Materials,470.76,9.92,False,41
+60,FAST-0060,Fasteners,51.4,38.63,False,39
+61,ELEC-0061,Electronics,398.22,28.3,True,35
+62,RAW -0062,Raw Materials,330.93,3.46,False,1
+63,RAW -0063,Raw Materials,411.25,5.29,False,41
+64,RAW -0064,Raw Materials,353.8,21.78,False,42
+65,PACK-0065,Packaging,308.15,45.98,False,30
+66,RAW -0066,Raw Materials,412.95,29.63,False,16
+67,ELEC-0067,Electronics,139.82,22.55,False,37
+68,MACH-0068,Machined Components,334.26,16.83,False,21
+69,FAST-0069,Fasteners,244.03,17.75,False,18
+70,MACH-0070,Machined Components,350.74,13.82,True,13
+71,ELEC-0071,Electronics,121.06,20.33,False,16
+72,TEXT-0072,Textiles,238.31,35.6,False,2
+73,ELEC-0073,Electronics,147.47,20.23,False,43
+74,MACH-0074,Machined Components,184.83,27.68,False,48
+75,MACH-0075,Machined Components,165.73,35.15,False,17
+76,FAST-0076,Fasteners,60.77,9.64,True,35
+77,TEXT-0077,Textiles,92.98,10.83,False,47
+78,MACH-0078,Machined Components,488.32,26.24,False,7
+79,FAST-0079,Fasteners,148.48,18.05,False,46
+80,MACH-0080,Machined Components,63.73,2.29,True,19
+81,TEXT-0081,Textiles,472.07,31.9,False,7
+82,ELEC-0082,Electronics,287.25,23.48,False,12
+83,ELEC-0083,Electronics,126.61,43.09,True,5
+84,RAW -0084,Raw Materials,246.13,28.86,False,10
+85,FAST-0085,Fasteners,405.67,47.46,True,16
+86,ELEC-0086,Electronics,279.26,20.81,False,40
+87,FAST-0087,Fasteners,387.96,19.03,False,20
+88,MACH-0088,Machined Components,495.02,15.28,False,40
+89,TEXT-0089,Textiles,50.07,38.14,False,17
+90,TEXT-0090,Textiles,41.05,12.0,False,11
+91,ELEC-0091,Electronics,204.55,34.47,False,3
+92,FAST-0092,Fasteners,144.41,14.14,False,5
+93,TEXT-0093,Textiles,117.1,13.24,False,38
+94,TEXT-0094,Textiles,402.05,9.9,True,15
+95,TEXT-0095,Textiles,74.92,13.29,True,4
+96,FAST-0096,Fasteners,396.42,29.76,False,19
+97,RAW -0097,Raw Materials,62.61,34.44,False,18
+98,MACH-0098,Machined Components,270.22,21.89,False,28
+99,TEXT-0099,Textiles,161.5,12.53,True,44
+100,MACH-0100,Machined Components,293.77,1.05,False,18
+101,MACH-0101,Machined Components,20.6,37.82,False,42
+102,RAW -0102,Raw Materials,458.08,9.08,False,41
+103,RAW -0103,Raw Materials,484.54,23.51,False,21
+104,TEXT-0104,Textiles,52.75,8.05,False,32
+105,PACK-0105,Packaging,331.46,20.03,False,3
+106,RAW -0106,Raw Materials,44.49,12.63,True,50
+107,RAW -0107,Raw Materials,432.52,41.25,True,35
+108,RAW -0108,Raw Materials,206.92,9.39,False,49
+109,RAW -0109,Raw Materials,312.89,38.0,False,36
+110,FAST-0110,Fasteners,463.87,21.91,False,8
+111,ELEC-0111,Electronics,486.59,30.45,False,11
+112,PACK-0112,Packaging,275.64,27.62,True,8
+113,RAW -0113,Raw Materials,473.56,32.39,False,46
+114,PACK-0114,Packaging,254.68,13.68,False,31
+115,FAST-0115,Fasteners,228.66,7.24,False,39
+116,MACH-0116,Machined Components,373.27,6.83,True,50
+117,RAW -0117,Raw Materials,170.27,39.39,False,1
+118,PACK-0118,Packaging,363.16,41.88,False,43
+119,RAW -0119,Raw Materials,432.7,22.33,False,22
+120,MACH-0120,Machined Components,381.55,18.87,False,13
+121,TEXT-0121,Textiles,119.78,19.15,False,27
+122,ELEC-0122,Electronics,159.43,23.65,False,25
+123,RAW -0123,Raw Materials,494.21,39.62,False,10
+124,RAW -0124,Raw Materials,482.43,6.32,False,22
+125,ELEC-0125,Electronics,437.16,22.02,False,30
+126,ELEC-0126,Electronics,361.36,20.5,False,10
+127,ELEC-0127,Electronics,235.01,48.46,False,45
+128,RAW -0128,Raw Materials,325.09,42.59,False,35
+129,RAW -0129,Raw Materials,477.09,31.34,False,32
+130,MACH-0130,Machined Components,18.43,3.43,False,19
+131,FAST-0131,Fasteners,373.51,21.7,True,41
+132,TEXT-0132,Textiles,436.35,22.19,False,2
+133,ELEC-0133,Electronics,162.53,2.82,False,28
+134,FAST-0134,Fasteners,122.48,20.61,False,12
+135,FAST-0135,Fasteners,87.95,30.48,False,44
+136,FAST-0136,Fasteners,249.08,29.16,False,41
+137,PACK-0137,Packaging,230.06,33.35,False,30
+138,PACK-0138,Packaging,338.97,7.91,False,23
+139,MACH-0139,Machined Components,149.93,48.1,False,30
+140,PACK-0140,Packaging,100.01,19.24,False,16
+141,RAW -0141,Raw Materials,286.18,28.74,False,19
+142,ELEC-0142,Electronics,488.98,32.91,False,37
+143,TEXT-0143,Textiles,389.27,48.68,False,48
+144,RAW -0144,Raw Materials,416.5,45.15,False,15
+145,MACH-0145,Machined Components,401.07,10.96,False,17
+146,TEXT-0146,Textiles,377.91,38.38,False,9
+147,TEXT-0147,Textiles,49.03,31.38,True,29
+148,ELEC-0148,Electronics,290.0,36.62,True,19
+149,PACK-0149,Packaging,373.87,8.79,True,35
+150,PACK-0150,Packaging,265.66,45.68,False,17
+151,RAW -0151,Raw Materials,483.71,14.76,False,8
+152,RAW -0152,Raw Materials,481.47,7.05,False,44
+153,TEXT-0153,Textiles,337.37,19.88,False,36
+154,PACK-0154,Packaging,45.61,19.73,False,8
+155,RAW -0155,Raw Materials,184.61,37.45,False,25
+156,TEXT-0156,Textiles,470.18,5.43,False,2
+157,MACH-0157,Machined Components,442.18,28.07,False,15
+158,TEXT-0158,Textiles,32.08,41.19,False,20
+159,TEXT-0159,Textiles,204.44,7.0,False,20
+160,RAW -0160,Raw Materials,58.5,11.75,False,25
+161,RAW -0161,Raw Materials,185.82,47.47,False,35
+162,RAW -0162,Raw Materials,293.88,36.33,False,42
+163,ELEC-0163,Electronics,416.93,30.79,False,18
+164,ELEC-0164,Electronics,345.3,10.87,False,16
+165,PACK-0165,Packaging,50.13,34.29,False,42
+166,PACK-0166,Packaging,30.74,13.8,False,30
+167,ELEC-0167,Electronics,331.55,32.09,False,2
+168,ELEC-0168,Electronics,393.5,12.19,True,37
+169,FAST-0169,Fasteners,34.77,38.26,False,14
+170,FAST-0170,Fasteners,164.62,7.39,False,1
+171,PACK-0171,Packaging,429.27,7.24,True,17
+172,FAST-0172,Fasteners,55.41,43.32,True,23
+173,FAST-0173,Fasteners,294.63,0.8,False,9
+174,TEXT-0174,Textiles,210.77,5.69,True,29
+175,PACK-0175,Packaging,256.86,5.46,False,40
+176,ELEC-0176,Electronics,363.76,45.44,False,20
+177,RAW -0177,Raw Materials,321.85,1.57,False,26
+178,RAW -0178,Raw Materials,343.21,24.52,False,5
+179,ELEC-0179,Electronics,161.39,7.43,True,40
+180,TEXT-0180,Textiles,292.89,35.61,False,39
+181,MACH-0181,Machined Components,147.8,25.28,False,45
+182,ELEC-0182,Electronics,426.47,32.55,False,47
+183,FAST-0183,Fasteners,215.32,44.41,False,30
+184,RAW -0184,Raw Materials,208.29,4.76,False,43
+185,PACK-0185,Packaging,187.46,7.64,False,5
+186,ELEC-0186,Electronics,415.97,4.67,True,48
+187,PACK-0187,Packaging,405.98,27.82,False,36
+188,MACH-0188,Machined Components,165.16,6.12,False,43
+189,RAW -0189,Raw Materials,434.11,36.06,False,39
+190,PACK-0190,Packaging,176.15,28.9,False,43
+191,RAW -0191,Raw Materials,112.51,5.42,False,24
+192,ELEC-0192,Electronics,381.42,28.71,False,36
+193,MACH-0193,Machined Components,306.98,32.14,True,43
+194,TEXT-0194,Textiles,134.09,9.03,False,20
+195,PACK-0195,Packaging,175.84,9.08,True,43
+196,RAW -0196,Raw Materials,35.26,37.05,False,6
+197,TEXT-0197,Textiles,265.48,18.82,False,11
+198,PACK-0198,Packaging,156.16,16.23,False,39
+199,ELEC-0199,Electronics,441.73,7.79,False,4
+200,TEXT-0200,Textiles,41.25,22.16,False,39
