@@ -1,11 +1,14 @@
 """
 Idempotent SPCS service deploy, run from GitHub Actions after the image is
-pushed. Authenticates with a PAT (no browser, no interactive login -- see
-implementation-findings.md Finding 4) and creates or updates the service
-under SUPPLY_CHAIN_APP_ROLE so the running container inherits that role's
-(scoped, not ACCOUNTADMIN) privileges.
+pushed. Authenticates with a PAT that is role-restricted directly to
+SUPPLY_CHAIN_APP_ROLE (no browser, no interactive login -- see
+implementation-findings.md Finding 4). A role-restricted PAT session cannot
+USE ROLE to switch (Snowflake blocks it: "Current session is restricted"),
+so the token itself must already be scoped to the target role -- the service
+this creates is then owned by that role, and the running container inherits
+its (scoped, not ACCOUNTADMIN) privileges.
 
-Env vars required: SNOWFLAKE_ACCOUNT, SNOWFLAKE_USER, SNOWFLAKE_PAT
+Env vars required: SNOWFLAKE_ACCOUNT, SNOWFLAKE_USER, SNOWFLAKE_APP_PAT
 """
 import os
 
@@ -13,7 +16,7 @@ import snowflake.connector
 
 ACCOUNT = os.environ["SNOWFLAKE_ACCOUNT"]
 USER = os.environ["SNOWFLAKE_USER"]
-PAT = os.environ["SNOWFLAKE_PAT"]
+PAT = os.environ["SNOWFLAKE_APP_PAT"]
 
 SERVICE_NAME = "SC_DEMO.APP.SUPPLY_CHAIN_APP"
 COMPUTE_POOL = "SUPPLY_CHAIN_APP_POOL"
@@ -30,10 +33,8 @@ def main():
         password=PAT,
         token=PAT,
         authenticator="PROGRAMMATIC_ACCESS_TOKEN",
-        role="ACCOUNTADMIN",
     )
     cur = conn.cursor()
-    cur.execute("USE ROLE SUPPLY_CHAIN_APP_ROLE")
 
     with open(SPEC_PATH, encoding="utf-8") as f:
         spec = f.read()

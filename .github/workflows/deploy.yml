@@ -37,5 +37,5 @@ jobs:
 
       - name: Create or update the SPCS service
         env:
-          SNOWFLAKE_PAT: ${{ secrets.SNOWFLAKE_PAT }}
+          SNOWFLAKE_APP_PAT: ${{ secrets.SNOWFLAKE_APP_PAT }}
         run: python scripts/deploy_service.py
