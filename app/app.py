@@ -10,7 +10,26 @@ import sf_session
 import qa
 import onboard_ui
 
-st.set_page_config(page_title="Supply Chain Semantic Layer", layout="wide")
+st.set_page_config(page_title="Supply Chain Semantic Layer", page_icon=":material/insights:", layout="wide")
+
+st.markdown(
+    """
+    <style>
+    .block-container { padding-top: 2rem; max-width: 1100px; }
+    [data-testid="stChatMessage"] { padding: 0.9rem 1.1rem; border-radius: 14px; margin-bottom: 0.6rem; }
+    [data-testid="stChatMessageContent"] p { margin-bottom: 0.4rem; }
+    div[data-testid="stMetric"] {
+        background: rgba(41, 181, 232, 0.08);
+        border: 1px solid rgba(41, 181, 232, 0.25);
+        border-radius: 12px;
+        padding: 0.8rem 1rem;
+    }
+    h1 { font-weight: 650; }
+    .stTabs [data-baseweb="tab-list"] { gap: 1.5rem; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 
 @st.cache_resource
@@ -19,9 +38,87 @@ def get_cursor():
     return conn.cursor()
 
 
-st.title("Supply Chain Semantic Layer")
+def render_result(df):
+    """Render a query result compactly: a single scalar as a metric card,
+    otherwise a table (+ a bar chart when the shape fits)."""
+    if df is None or df.empty:
+        st.caption("Query returned no rows.")
+        return
+    if df.shape == (1, 1):
+        col = df.columns[0]
+        value = df.iloc[0, 0]
+        if isinstance(value, float):
+            value = round(value, 2)
+        st.metric(col.replace("_", " ").title(), value)
+        return
+    st.dataframe(df, use_container_width=True, hide_index=True)
+    numeric_cols = df.select_dtypes(include="number").columns.tolist()
+    if len(df) > 1 and len(numeric_cols) >= 1 and len(df.columns) - len(numeric_cols) == 1:
+        label_col = [c for c in df.columns if c not in numeric_cols][0]
+        st.bar_chart(df.set_index(label_col)[numeric_cols])
 
-tab_onboard, tab_ask = st.tabs(["Onboard Source", "Ask Questions"])
+
+def render_turn(question, sql=None, df=None, error=None):
+    with st.chat_message("user"):
+        st.write(question)
+    with st.chat_message("assistant"):
+        if error:
+            st.error(error, icon=":material/error:")
+            return
+        render_result(df)
+        with st.expander("Generated SQL"):
+            st.code(sql, language="sql")
+
+
+st.title("Supply Chain Semantic Layer")
+st.caption("Ontology-mapping onboarding pipeline + a chat interface over your deployed semantic views.")
+
+tab_ask, tab_onboard = st.tabs(["Ask Questions", "Onboard Source"])
+
+with tab_ask:
+    with st.sidebar:
+        st.header("Ask Questions")
+        database_for_search = st.text_input("Database", value="SC_DEMO")
+        cur = get_cursor()
+        try:
+            views = qa.list_semantic_views(cur, database_for_search)
+        except Exception as e:
+            st.error(f"Could not list semantic views: {e}")
+            views = []
+
+        selected_view = st.selectbox("Semantic view", views) if views else None
+
+        if "chat_history" not in st.session_state:
+            st.session_state.chat_history = {}
+        if selected_view and selected_view not in st.session_state.chat_history:
+            st.session_state.chat_history[selected_view] = []
+        history = st.session_state.chat_history.get(selected_view, [])
+
+        if st.button("Clear conversation", use_container_width=True):
+            history.clear()
+            st.rerun()
+
+    if not views:
+        st.warning("No semantic views found (or none visible to this role).")
+    elif not history:
+        st.info(
+            f"Ask a question about **{selected_view}** below. Try: "
+            "\"What is the overall fill rate?\" or \"Which suppliers have the worst on-time delivery rate?\""
+        )
+
+    for turn in history:
+        render_turn(turn["question"], turn.get("sql"), turn.get("df"), turn.get("error"))
+
+    question = st.chat_input("Ask a question...")
+    if question and selected_view:
+        with st.spinner("Generating and running SQL..."):
+            try:
+                sql, cols, rows = qa.ask(cur, selected_view, question, history=history)
+                df = pd.DataFrame(rows, columns=cols) if rows else pd.DataFrame(columns=cols)
+                history.append({"question": question, "sql": sql, "df": df})
+            except Exception as e:
+                history.append({"question": question, "error": str(e)})
+        st.rerun()
 
 with tab_onboard:
     st.subheader("Map a source schema to the ontology and deploy a semantic view")
@@ -30,30 +127,40 @@ with tab_onboard:
         "(framework/onboard.py phases 1a-1d) against a source schema, with "
         "zero hand-authored YAML."
     )
-    col1, col2 = st.columns(2)
-    with col1:
-        source_db = st.text_input("Source database", value="SC_DEMO")
-        source_schema = st.text_input("Source schema", value="RAW")
-    with col2:
-        target_db = st.text_input("Target database", value="SC_DEMO")
-        target_schema = st.text_input("Target schema", value="ANALYTICS_AUTO")
-    view_name = st.text_input("Semantic view name", value="SUPPLY_CHAIN_ANALYTICS_AUTO")
 
-    if st.button("Run onboarding pipeline", type="primary"):
+    with st.container(border=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**Source**")
+            source_db = st.text_input("Database", value="SC_DEMO", key="src_db")
+            source_schema = st.text_input("Schema", value="RAW", key="src_schema")
+        with col2:
+            st.markdown("**Target**")
+            target_db = st.text_input("Database", value="SC_DEMO", key="tgt_db")
+            target_schema = st.text_input("Schema", value="ANALYTICS_AUTO", key="tgt_schema")
+        view_name = st.text_input("Semantic view name", value="SUPPLY_CHAIN_ANALYTICS_AUTO")
+        run_clicked = st.button("Run onboarding pipeline", type="primary")
+
+    if run_clicked:
         cur = get_cursor()
-        status_box = st.empty()
+        with st.status("Running onboarding pipeline...", expanded=True) as status:
+            def report(msg):
+                status.update(label=msg)
+                st.write(msg)
 
-        def report(msg):
-            status_box.info(msg)
-
-        with st.spinner("Running..."):
             try:
                 result = onboard_ui.run_onboarding(
                     cur, source_db, source_schema, target_db, target_schema, view_name, status_cb=report
                 )
             except Exception as e:
+                status.update(label="Pipeline failed", state="error")
                 st.error(f"Pipeline failed: {e}")
                 result = None
+
+            if result and not result.get("error"):
+                status.update(label=f"Deployed {result['view_fqn']}", state="complete")
+            elif result:
+                status.update(label="Mapping rejected -- needs human resolution", state="error")
 
         if result:
             if result.get("error"):
@@ -61,88 +168,19 @@ with tab_onboard:
                 with st.expander("Mapping report", expanded=True):
                     st.markdown(result["mapping_report"])
             else:
-                status_box.success(f"Deployed {result['view_fqn']}")
-                st.write(result["deploy_status"])
-
-                st.subheader("Metric values")
-                st.dataframe(pd.DataFrame([result["metrics"]]))
+                metric_cols = st.columns(len(result["metrics"]) or 1)
+                for c, (name, value) in zip(metric_cols, result["metrics"].items()):
+                    with c:
+                        st.metric(name.replace("_", " ").title(), round(value, 2) if isinstance(value, float) else value)
 
                 if result["dropped_relationships"]:
                     st.info(f"Dropped {len(result['dropped_relationships'])} redundant (denormalized) relationship(s).")
 
-                st.subheader("Verified query round-trip")
+                st.markdown("**Verified query round-trip**")
                 vq_df = pd.DataFrame(result["verified_queries"], columns=["query", "result"])
-                st.dataframe(vq_df, use_container_width=True)
+                st.dataframe(vq_df, use_container_width=True, hide_index=True)
 
                 with st.expander("Mapping report"):
                     st.markdown(result["mapping_report"])
                 with st.expander("Generated semantic view YAML"):
                     st.code(result["view_yaml"], language="yaml")
-
-with tab_ask:
-    st.subheader("Ask questions about a deployed semantic view")
-    cur = get_cursor()
-
-    database_for_search = st.text_input("Database to search for semantic views", value="SC_DEMO")
-    try:
-        views = qa.list_semantic_views(cur, database_for_search)
-    except Exception as e:
-        st.error(f"Could not list semantic views: {e}")
-        views = []
-
-    if not views:
-        st.warning("No semantic views found (or none visible to this role).")
-    else:
-        selected_view = st.selectbox("Semantic view", views)
-
-        if "chat_history" not in st.session_state:
-            st.session_state.chat_history = {}
-        if selected_view not in st.session_state.chat_history:
-            st.session_state.chat_history[selected_view] = []
-        history = st.session_state.chat_history[selected_view]
-
-        if st.button("Clear conversation"):
-            history.clear()
-            st.rerun()
-
-        for turn in history:
-            with st.chat_message("user"):
-                st.write(turn["question"])
-            with st.chat_message("assistant"):
-                if turn.get("error"):
-                    st.error(turn["error"])
-                else:
-                    st.code(turn["sql"], language="sql")
-                    df = turn.get("df")
-                    if df is not None and not df.empty:
-                        st.dataframe(df, use_container_width=True)
-                        numeric_cols = df.select_dtypes(include="number").columns.tolist()
-                        if len(df) > 1 and len(numeric_cols) >= 1 and len(df.columns) - len(numeric_cols) == 1:
-                            label_col = [c for c in df.columns if c not in numeric_cols][0]
-                            st.bar_chart(df.set_index(label_col)[numeric_cols])
-                    else:
-                        st.info("Query returned no rows.")
-
-        question = st.chat_input("Ask a question, e.g. 'What is the overall fill rate?'")
-        if question:
-            with st.chat_message("user"):
-                st.write(question)
-            with st.chat_message("assistant"):
-                with st.spinner("Generating and running SQL..."):
-                    try:
-                        sql, cols, rows = qa.ask(cur, selected_view, question, history=history)
-                        df = pd.DataFrame(rows, columns=cols) if rows else pd.DataFrame(columns=cols)
-                        st.code(sql, language="sql")
-                        if not df.empty:
-                            st.dataframe(df, use_container_width=True)
-                            numeric_cols = df.select_dtypes(include="number").columns.tolist()
-                            if len(df) > 1 and len(numeric_cols) >= 1 and len(df.columns) - len(numeric_cols) == 1:
-                                label_col = [c for c in df.columns if c not in numeric_cols][0]
-                                st.bar_chart(df.set_index(label_col)[numeric_cols])
-                        else:
-                            st.info("Query returned no rows.")
-                        history.append({"question": question, "sql": sql, "df": df})
-                    except Exception as e:
-                        st.error(f"Could not answer: {e}")
-                        history.append({"question": question, "error": str(e)})
-
