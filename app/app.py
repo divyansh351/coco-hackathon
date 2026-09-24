@@ -70,6 +70,16 @@ def render_turn(question, sql=None, df=None, error=None):
             st.code(sql, language="sql")
 
 
+def rerun_question(cur, view, question, history):
+    with st.spinner("Generating and running SQL..."):
+        try:
+            sql, cols, rows = qa.ask(cur, view, question, history=history)
+            df = pd.DataFrame(rows, columns=cols) if rows else pd.DataFrame(columns=cols)
+            history.append({"question": question, "sql": sql, "df": df})
+        except Exception as e:
+            history.append({"question": question, "error": str(e)})
+
+
 st.title("Supply Chain Semantic Layer")
 st.caption("Ontology-mapping onboarding pipeline + a chat interface over your deployed semantic views.")
 
@@ -106,18 +116,18 @@ with tab_ask:
             "\"What is the overall fill rate?\" or \"Which suppliers have the worst on-time delivery rate?\""
         )
 
-    for turn in history:
+    for i, turn in enumerate(history):
         render_turn(turn["question"], turn.get("sql"), turn.get("df"), turn.get("error"))
+        if turn.get("error"):
+            if st.button("Retry this question", key=f"retry_{i}"):
+                original_question = turn["question"]
+                history.pop(i)
+                rerun_question(cur, selected_view, original_question, history)
+                st.rerun()
 
     question = st.chat_input("Ask a question...")
     if question and selected_view:
-        with st.spinner("Generating and running SQL..."):
-            try:
-                sql, cols, rows = qa.ask(cur, selected_view, question, history=history)
-                df = pd.DataFrame(rows, columns=cols) if rows else pd.DataFrame(columns=cols)
-                history.append({"question": question, "sql": sql, "df": df})
-            except Exception as e:
-                history.append({"question": question, "error": str(e)})
+        rerun_question(cur, selected_view, question, history)
         st.rerun()
 
 with tab_onboard:

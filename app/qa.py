@@ -120,11 +120,13 @@ under a table are queryable -- there may be other columns on the underlying
 physical table that are NOT part of this semantic view and must not be used.
 
 If you need an outer WHERE/ORDER BY/GROUP BY on the query result (e.g. to
-filter by date), reference the OUTPUT column by its bare name only (e.g.
+filter or sort), reference the OUTPUT column by its bare name only (e.g.
 `order_date`, never `purchase_orders.order_date`) -- SEMANTIC_VIEW() returns
-unqualified column names, and a table-qualified name in an outer clause is an
-invalid identifier. Prefer filtering by putting a time_dimension in the
-DIMENSIONS(...) clause and filtering the outer query on its bare name.
+unqualified column names, and a table-qualified name anywhere outside the
+SEMANTIC_VIEW(...) parentheses is an invalid identifier. This applies to the
+outer SELECT list too: prefer `SELECT * FROM SEMANTIC_VIEW(...)` and put every
+metric/dimension you want in the METRICS(...)/DIMENSIONS(...) clauses, rather
+than writing your own outer SELECT column list with table-qualified names.
 
 {structure}
 {history_block}
