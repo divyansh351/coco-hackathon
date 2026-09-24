@@ -33,7 +33,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install snowflake-connector-python
-        run: pip install snowflake-connector-python==3.18.0
+        run: pip install snowflake-connector-python==4.7.3
 
       - name: Create or update the SPCS service
         env:
