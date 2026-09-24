@@ -21,9 +21,13 @@ SPEC_PATH = os.path.join(os.path.dirname(__file__), "..", "service-spec.yaml")
 
 
 def main():
+    print(f"snowflake-connector-python version: {snowflake.connector.__version__}")
+    print(f"PAT length: {len(PAT)}")
+
     conn = snowflake.connector.connect(
         account=ACCOUNT,
         user=USER,
+        password=PAT,
         token=PAT,
         authenticator="PROGRAMMATIC_ACCESS_TOKEN",
         role="ACCOUNTADMIN",
