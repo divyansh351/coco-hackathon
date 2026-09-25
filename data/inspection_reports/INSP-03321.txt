@@ -1,0 +1,33 @@
+SUPPLIER QUALITY INSPECTION REPORT
+
+Report No: QIR-2025-0369
+Inspection Date: 2025-08-04
+Inspector: T. Okafor, Incoming Quality
+Shipment Reference: SHP-03321
+Supplier: MexicoSupply-017
+Part: MACH-0075
+
+Quantity Received: 1111 units
+Quantity Inspected (sample): 400 units
+Quantity Rejected: 105 units (extrapolated from sample defect rate)
+
+Findings:
+Sampled units showed inconsistent bore diameter, with 38 of 400 sampled
+parts (9.5%) outside the +/-0.02mm tolerance band. Pattern matches a
+known tool-wear signature previously seen on this part number from this
+same supplier.
+
+Root Cause: Repeat of prior tool-wear nonconformance (see QIR-2026-0655);
+supplier's corrective action from the earlier event had not yet taken
+effect at the time this shipment was produced.
+
+Disposition: Reject 105 units. Remaining shipment released after
+100% re-check of the affected dimension.
+
+Corrective Action Requested: Confirm effective date of the CNC
+cycle-count lockout corrective action and require supplier to certify,
+in writing, that all shipments after that date were produced under the
+new control.
+
+Follow-up: Pattern confirms a systemic tool-maintenance issue for this
+part number at this supplier, not an isolated event.

@@ -1,0 +1,32 @@
+SUPPLIER QUALITY INSPECTION REPORT
+
+Report No: QIR-2026-0331
+Inspection Date: 2026-03-16
+Inspector: L. Chen, Incoming Quality
+Shipment Reference: SHP-10967
+Supplier: MexicoSupply-017
+Part: MACH-0145
+
+Quantity Received: 629 units
+Quantity Inspected (sample): 629 units (100% inspection, flagged supplier)
+Quantity Rejected: 104 units
+
+Findings:
+Torque test on the threaded insert failed on 104 units -- inserts pulled
+out below the 45 Nm minimum holding torque, with observed values as low
+as 28 Nm. Thread pitch measured within spec, so the failure is
+adhesive-related rather than a machining defect.
+
+Root Cause: Supplier's threadlocker adhesive cure time was reduced during
+a recent line-speed increase; insufficient cure time before torque test
+weakens the bond.
+
+Disposition: Reject 104 units. Remaining 525 units held 48 hours for
+full adhesive cure, then re-tested and passed.
+
+Corrective Action Requested: Supplier to revert cure-time to the
+validated process parameter or requalify the faster cycle with a full
+DOE (design of experiments) study before resuming the higher line speed.
+
+Follow-up: New nonconformance mode for this supplier -- flagged as a
+process-change control gap, escalate to supplier's plant manager.

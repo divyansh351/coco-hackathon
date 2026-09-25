@@ -1,0 +1,36 @@
+SUPPLIER QUALITY INSPECTION REPORT
+
+Report No: QIR-2026-0611
+Inspection Date: 2026-06-03
+Inspector: R. Alvarez, Incoming Quality
+Shipment Reference: SHP-13699
+Supplier: MexicoSupply-017
+Part: RAW -0044
+
+Quantity Received: 856 units
+Quantity Inspected (sample): 856 units (100% inspection, per SCAR history)
+Quantity Rejected: 141 units
+
+Findings:
+Visual inspection of the raw material coils found surface oxidation across
+multiple pallets, consistent with prolonged exposure to humidity during
+ocean transit. Approximately 16% of the lot showed rust discoloration
+exceeding the acceptable cosmetic tolerance in spec MS-114 Rev C. A
+sub-sample of 20 units was cut and tested; 3 units also failed thickness
+tolerance (+/- 0.05mm), suggesting a secondary rolling-process deviation
+unrelated to the moisture issue.
+
+Root Cause: Packaging/moisture barrier failure during transit (primary);
+supplier rolling-mill calibration drift (secondary, contributing).
+
+Disposition: Reject and return 141 units. Remaining 715 units accepted
+with concession, pending 8D corrective action report from supplier.
+
+Corrective Action Requested: Supplier to add desiccant packs and vapor
+barrier film to all future coil shipments; recalibrate rolling mill
+gauge sensors and provide calibration certificate.
+
+Follow-up: This is the third moisture-related rejection from
+MexicoSupply-017 in the last two quarters. Recommend supplier
+performance review and consideration of tier downgrade if unresolved
+by next shipment.

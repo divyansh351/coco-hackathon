@@ -1,0 +1,35 @@
+SUPPLIER QUALITY INSPECTION REPORT
+
+Report No: QIR-2025-0602
+Inspection Date: 2025-07-25
+Inspector: T. Okafor, Incoming Quality
+Shipment Reference: SHP-02599
+Supplier: IndiaSupply-010
+Part: ELEC-0054
+
+Quantity Received: 1212 units
+Quantity Inspected (sample): 1212 units (100% inspection, per contract)
+Quantity Rejected: 91 units
+
+Findings:
+Functional test bench failed 91 units on the power-on self-test, with
+intermittent failures traced to a cold solder joint on the main PCB's
+voltage regulator pad. X-ray inspection of a 10-unit subset confirmed
+insufficient solder reflow on the affected pad across all 10 units
+checked.
+
+Root Cause: Reflow oven temperature profile drift on the supplier's
+SMT line; oven zone 3 was running 8-10C below the qualified profile at
+the time this lot was produced, per supplier's own SPC data shared
+after the investigation request.
+
+Disposition: Reject 91 units, no rework (board-level rework not
+authorized for safety-critical boards). Remaining 1121 units passed
+100% functional test and were accepted.
+
+Corrective Action Requested: Supplier to recalibrate the reflow oven's
+zone 3 thermocouple, verify with a full thermal profile run, and provide
+first-article X-ray results for the next three lots.
+
+Follow-up: No prior reflow-related nonconformance from this supplier;
+isolated equipment-drift event, not a trend -- standard monitoring only.

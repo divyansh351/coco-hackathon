@@ -1,0 +1,34 @@
+SUPPLIER QUALITY INSPECTION REPORT
+
+Report No: QIR-2026-0332
+Inspection Date: 2026-04-01
+Inspector: M. Singh, Incoming Quality
+Shipment Reference: SHP-11518
+Supplier: MexicoSupply-017
+Part: MACH-0075
+
+Quantity Received: 671 units
+Quantity Inspected (sample): 671 units (100% inspection, flagged supplier)
+Quantity Rejected: 95 units
+
+Findings:
+Bore diameter out of tolerance again on this part number (target
+12.700mm +/-0.02mm); 95 units measured above the upper limit, consistent
+with the previously reported tool-wear failure mode.
+
+Root Cause: Same as QIR-2026-0655 and QIR-2025-0369 -- CNC boring tool
+run past its replacement interval. Supplier's promised cycle-count
+lockout corrective action does not appear to be effective on this
+shipment's production date.
+
+Disposition: Reject 95 units. Remaining 576 units passed 100%
+dimensional re-check.
+
+Corrective Action Requested: Immediate containment -- supplier to
+provide the CNC controller's cycle-count log for the machine that
+produced this lot and confirm whether the lockout software was actually
+active.
+
+Follow-up: Third repeat of this exact failure mode from this supplier
+for this part number. Recommend a supplier quality escalation meeting
+and consideration of a secondary source qualification for this part.

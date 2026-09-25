@@ -1,0 +1,33 @@
+SUPPLIER QUALITY INSPECTION REPORT
+
+Report No: QIR-2025-0442
+Inspection Date: 2025-08-31
+Inspector: T. Okafor, Incoming Quality
+Shipment Reference: SHP-04068
+Supplier: MexicoSupply-017
+Part: PACK-0171
+
+Quantity Received: 776 units
+Quantity Inspected (sample): 200 units
+Quantity Rejected: 135 units (extrapolated from sample defect rate)
+
+Findings:
+Sample inspection of packaging components revealed inconsistent heat-seal
+strength on the film liners; 34 of 200 sampled units failed the peel-force
+test (below 4.5 N minimum per spec PKG-22). Seal defects were concentrated
+in units from the second half of the shipment, suggesting a mid-run
+equipment issue on the supplier's sealing line rather than a
+material-batch problem.
+
+Root Cause: Sealing bar temperature drift during the production run
+(supplier process control issue), not a raw material defect.
+
+Disposition: Full shipment placed on hold pending 100% re-inspection.
+135 units confirmed defective and rejected; balance released to
+production after re-test.
+
+Corrective Action Requested: Supplier to implement in-line temperature
+monitoring with automatic reject on the sealing station and submit
+process capability data (Cpk) for the next three production runs.
+
+Follow-up: Second sealing-related defect from this supplier this year.

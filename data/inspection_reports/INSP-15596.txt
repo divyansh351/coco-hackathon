@@ -1,0 +1,34 @@
+SUPPLIER QUALITY INSPECTION REPORT
+
+Report No: QIR-2026-0788
+Inspection Date: 2026-08-11
+Inspector: L. Chen, Incoming Quality
+Shipment Reference: SHP-15596
+Supplier: MexicoSupply-017
+Part: TEXT-0089
+
+Quantity Received: 1159 units
+Quantity Inspected (sample): 300 units
+Quantity Rejected: 119 units (extrapolated from sample defect rate)
+
+Findings:
+Textile lot showed color variance beyond the approved Delta-E tolerance
+(2.0) against the reference standard swatch; measured Delta-E ranged
+from 2.3 to 3.8 across the sampled rolls. No dimensional or tensile
+defects were found -- this is a purely cosmetic/color-match issue tied
+to a dye-lot change the supplier did not flag on the packing list.
+
+Root Cause: Supplier changed dye lot without notifying the buyer's
+quality team, violating the change-notification clause in the supply
+agreement.
+
+Disposition: Rejected 119 units (rolls furthest outside tolerance).
+Remaining rolls accepted for non-visible/internal-use parts only, per
+engineering waiver EW-2026-091.
+
+Corrective Action Requested: Supplier to reinstate dye-lot change
+notification per contract Section 7.2 and submit a corrected Delta-E
+report for the remaining inventory.
+
+Follow-up: No prior color-related nonconformance on file for this
+supplier; treated as an isolated process-control lapse, not a trend.

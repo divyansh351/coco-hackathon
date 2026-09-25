@@ -1,0 +1,35 @@
+SUPPLIER QUALITY INSPECTION REPORT
+
+Report No: QIR-2025-0201
+Inspection Date: 2025-04-22
+Inspector: M. Singh, Incoming Quality
+Shipment Reference: SHP-00390
+Supplier: CanadaSupply-015
+Part: MACH-0157
+
+Quantity Received: 1086 units
+Quantity Inspected (sample): 1086 units (100% inspection, per contract)
+Quantity Rejected: 106 units
+
+Findings:
+Incoming inspection identified porosity defects in 106 units revealed by
+dye-penetrant testing, concentrated near the casting's gate location.
+Metallurgical review attributes this to insufficient degassing during
+the casting process. No dimensional or material-composition issues were
+found on any unit.
+
+Root Cause: Casting process control -- inadequate degassing time before
+pour, per supplier's own process audit shared during the investigation
+call.
+
+Disposition: Reject 106 units, scrap disposition (no rework possible
+for porosity defects of this severity). Remaining 980 units accepted.
+
+Corrective Action Requested: Supplier to extend degassing hold time per
+their revised casting work instruction WI-CAST-09 Rev 4 and submit
+first-article inspection results for the next production lot before
+shipment.
+
+Follow-up: First porosity-related nonconformance from this supplier in
+the current contract period; no trend identified, but flagged for
+monitoring on the next two shipments.

@@ -1,0 +1,32 @@
+SUPPLIER QUALITY INSPECTION REPORT
+
+Report No: QIR-2026-0298
+Inspection Date: 2026-03-05
+Inspector: R. Alvarez, Incoming Quality
+Shipment Reference: SHP-10433
+Supplier: MexicoSupply-017
+Part: PACK-0150
+
+Quantity Received: 1091 units
+Quantity Inspected (sample): 300 units
+Quantity Rejected: 99 units (extrapolated from sample defect rate)
+
+Findings:
+Carton crush-strength test failed on 27 of 300 sampled units (9%); the
+corrugate board's edge crush test (ECT) measured 28-30 lb/in against a
+32 lb/in minimum. Visual inspection also found inconsistent glue-flap
+adhesion on a subset of the same failing units.
+
+Root Cause: Supplier substituted a lower-grade corrugate board without
+a documented material change request, likely as a cost-reduction measure
+by their sub-tier board supplier.
+
+Disposition: Reject 99 units. Remaining shipment accepted for
+non-stacked, single-layer storage only, per warehouse ops waiver.
+
+Corrective Action Requested: Supplier to revert to the approved
+corrugate board grade and submit a Material Change Request (MCR) for
+any future substitution, per the supplier quality manual Section 4.
+
+Follow-up: First material-substitution nonconformance on file for this
+supplier; recommend an unannounced sub-tier supplier audit.

@@ -1,0 +1,34 @@
+SUPPLIER QUALITY INSPECTION REPORT
+
+Report No: QIR-2026-0655
+Inspection Date: 2026-06-23
+Inspector: R. Alvarez, Incoming Quality
+Shipment Reference: SHP-14275
+Supplier: MexicoSupply-017
+Part: MACH-0075
+
+Quantity Received: 908 units
+Quantity Inspected (sample): 908 units (100% inspection, flagged supplier)
+Quantity Rejected: 113 units
+
+Findings:
+CMM dimensional check found the critical bore diameter out of tolerance
+(target 12.700mm +/-0.02mm) on 113 units, measuring between 12.735mm and
+12.751mm -- consistent with a worn boring tool that was not replaced on
+schedule. Surface finish and hardness were within spec on all sampled
+parts.
+
+Root Cause: Tool wear beyond the supplier's preventive-maintenance
+interval; supplier's tool-change log shows the boring tool was run
+1,400 cycles past its documented 5,000-cycle replacement point.
+
+Disposition: Reject 113 units. Remaining 795 units passed 100%
+dimensional re-check and were accepted.
+
+Corrective Action Requested: Supplier to enforce tool-change intervals
+via the CNC controller's cycle-count lockout rather than a manual log,
+and provide updated PM records.
+
+Follow-up: This is the fourth machining-tolerance nonconformance from
+MexicoSupply-017 for this part number in the past 12 months --
+escalating to supplier corrective action board (SCAR) review.
