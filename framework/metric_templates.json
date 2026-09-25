@@ -35,7 +35,7 @@
     {
       "name": "lead_time_days",
       "owning_entity": "Transaction",
-      "expr_template": "DATEDIFF('day', {{Demand.order_date}}, {{Transaction.delivery_date}})",
+      "expr_template": "DATEDIFF('day', {{Demand}}.order_date, {{Transaction.delivery_date}})",
       "data_type": "NUMBER",
       "public": false,
       "cross_entity_column_ref": true,
@@ -136,7 +136,7 @@
       "name": "order_cycle_time_days",
       "kind": "nested_aggregate",
       "owning_entity": "Demand",
-      "expr_template": "AVG(DATEDIFF('day', {{Demand.order_date}}, MAX({{Transaction}}.delivery_date)))",
+      "expr_template": "AVG(DATEDIFF('day', {{Demand}}.order_date, MAX({{Transaction}}.delivery_date)))",
       "relationship_grain": "one_to_many",
       "description": "Average days from order placement to the last (final) delivery for that order. Demand is coarser grain than Transaction (many transactions per order via DemandLine), so this uses nested aggregation (MAX per order, then AVG across orders) -- valid as a table-scoped metric per Snowflake's 'higher granularity reference' rule for metrics, unlike fill_rate which combines two independently-owned metrics."
     },

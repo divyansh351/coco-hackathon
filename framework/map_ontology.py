@@ -60,7 +60,17 @@ def score_table_against_entity(table, manifest, fk_graph, entity):
     elif expected_fk_count > 0 and actual_fk_count >= expected_fk_count:
         score += 0.4 * min(1.0, expected_fk_count / max(actual_fk_count, 1))
     elif expected_fk_count == 0 and actual_fk_count > 0:
-        score += 0.1  # entity expects no FKs but table has some -- weak fit
+        # The ontology declaring zero required FKs for this entity doesn't
+        # mean a real table backing it can't have one -- e.g. a Part/Material
+        # table legitimately has a "primary_supplier_id"-style FK that simply
+        # isn't part of this entity's declared relationship model (see
+        # implementation-findings.md Finding 3, which hit the same root cause
+        # one phase later during relationship instantiation). A flat 0.1
+        # regardless of how many extra FKs there are let a handful of
+        # zero-FK tables systematically outscore -- and crowd out of the
+        # top-N LLM candidate window -- an otherwise-correct match. Decay
+        # smoothly instead of flooring immediately.
+        score += max(0.1, 0.4 - 0.15 * actual_fk_count)
 
     # Cheap name-token overlap bonus (0.0-0.3): table name vs entity name/aliases.
     names = [entity["name"]] + entity.get("aliases", [])
@@ -195,7 +205,7 @@ def call_ai_complete(cur, prompt):
     return cur.fetchone()[0]
 
 
-def pass2_llm_entity_matching(cur, manifest, ontology, entity_table_scores, top_n=3, min_gap_to_skip_llm=0.25):
+def pass2_llm_entity_matching(cur, manifest, ontology, entity_table_scores, top_n=5, min_gap_to_skip_llm=0.25):
     """For each ontology entity, if Pass 1's top candidate is not decisively
     ahead of the runner-up (gap < min_gap_to_skip_llm), ask the LLM to choose
     among the top-N candidate tables and map attributes to columns. Entities

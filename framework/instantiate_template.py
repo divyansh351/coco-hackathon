@@ -237,6 +237,23 @@ def resolve_facts_by_table(mapping, templates, dims_by_table=None, time_dims_by_
             expr = resolve_expr(fact["expr_template"], mapping)
         except ValueError:
             continue  # unmapped dependency (e.g. optional attribute) -- skip this fact
+
+        # A cross_ref's raw {{Entity.attribute}} placeholder resolves (like
+        # every other placeholder) to "alias.physical_column" -- correct for
+        # a same-table reference, but wrong here: the passthrough fact this
+        # loop declares below is named after the LOGICAL attribute, not the
+        # physical column, so the referencing expr must point at that logical
+        # name instead, or Snowflake rejects it as an invalid identifier for
+        # any source whose physical column name happens to differ from the
+        # ontology attribute name (see implementation-findings.md).
+        for ref in fact.get("cross_refs", []):
+            ref_entity, ref_attr = ref["entity"], ref["attribute"]
+            ref_alias = table_alias(mapping, ref_entity)
+            ref_col = resolved_column(mapping, ref_entity, ref_attr)
+            if not ref_col:
+                continue
+            expr = re.sub(rf"\b{re.escape(ref_alias)}\.{re.escape(ref_col)}\b", f"{ref_alias}.{ref_attr}", expr)
+
         by_table.setdefault(owning_table, []).append({
             "name": fact["name"],
             "expr": expr,
