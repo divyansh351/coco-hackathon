@@ -75,14 +75,6 @@ st.markdown(
     }
     [data-testid="stChatInput"] textarea { font-size: 0.98rem; }
 
-    /* ---- Suggested-prompt chips on the welcome screen ---- */
-    div[class*="st-key-chip_container_"] button {
-        border-radius: 999px !important;
-        font-size: 0.85rem !important;
-        padding: 0.5rem 1rem !important;
-        border-color: rgba(120, 120, 128, 0.25) !important;
-    }
-
     /* ---- Buttons generally a touch rounder ---- */
     .stButton button { border-radius: 10px; }
 
@@ -200,10 +192,9 @@ with tab_ask:
         chip_cols = st.columns(2)
         for i, suggestion in enumerate(SUGGESTIONS):
             with chip_cols[i % 2]:
-                with st.container(key=f"chip_container_{i}"):
-                    if st.button(suggestion, key=f"chip_{i}", use_container_width=True):
-                        rerun_question(cur, selected_view, suggestion, history)
-                        st.rerun()
+                if st.button(suggestion, key=f"chip_{i}", use_container_width=True):
+                    rerun_question(cur, selected_view, suggestion, history)
+                    st.rerun()
 
     for i, turn in enumerate(history):
         render_turn(turn["question"], turn.get("sql"), turn.get("df"), turn.get("error"), turn.get("narrative"))
