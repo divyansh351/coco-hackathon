@@ -1,5 +1,6 @@
 import sys
 import os
+import decimal
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "framework"))
 
@@ -47,6 +48,8 @@ def render_result(df):
     if df.shape == (1, 1):
         col = df.columns[0]
         value = df.iloc[0, 0]
+        if isinstance(value, decimal.Decimal):
+            value = float(value)
         if isinstance(value, float):
             value = round(value, 2)
         st.metric(col.replace("_", " ").title(), value)
@@ -77,6 +80,9 @@ def rerun_question(cur, view, question, history):
         try:
             sql, cols, rows, narrative = qa.ask(cur, view, question, history=history)
             df = pd.DataFrame(rows, columns=cols) if rows else pd.DataFrame(columns=cols)
+            for c in df.columns:
+                if df[c].map(lambda v: isinstance(v, decimal.Decimal)).any():
+                    df[c] = df[c].astype(float)
             history.append({"question": question, "sql": sql, "df": df, "narrative": narrative})
         except Exception as e:
             history.append({"question": question, "error": str(e)})
