@@ -88,6 +88,20 @@
       "dimension_attribute": "facility_name",
       "metrics": ["shipment_count"],
       "order_by": "shipment_count DESC"
+    },
+    {
+      "name": "days_of_inventory_overall",
+      "question": "What is our current days of inventory?",
+      "metrics": ["days_of_inventory"],
+      "onboarding_question": true
+    },
+    {
+      "name": "landed_cost_per_unit_by_supplier_region",
+      "question": "What's our average landed cost per unit by supplier region?",
+      "dimension_entity": "Supplier",
+      "dimension_attribute": "region",
+      "metrics": ["landed_cost_per_unit"],
+      "requires_optional_attrs": ["DemandLine.unit_price", "Transaction.freight_cost", "Transaction.duty_cost"]
     }
   ]
 }

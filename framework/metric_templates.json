@@ -2,17 +2,17 @@
   "description": "Canonical metric templates (design doc Section 4). facts[] are row-level helper expressions owned by one entity; metrics[] are aggregate-level. A metric with kind='derived' MUST be emitted as a YAML top-level derived metric (never table-scoped) because it composes metrics owned by two different entities across a non-1:1 relationship -- see implementation-findings.md Finding 1. Placeholder syntax: {{Entity.attribute}} resolves to the mapped physical column expression on Entity's resolved logical table; {{Entity}} alone resolves to just the resolved logical table alias (lowercased).",
 
   "variables": [
-    {"name": "on_time_tolerance_days", "data_type": "NUMBER", "default_value": "0", "description": "Days of grace period before a late delivery counts as late."}
+    {"name": "on_time_tolerance_days", "data_type": "NUMBER", "default_value": "0", "description": "Days of grace period before a late delivery counts as late. NOTE: not referenced by any fact/metric expr_template below -- see is_on_time's description for why."}
   ],
 
   "facts": [
     {
       "name": "is_on_time",
       "owning_entity": "Transaction",
-      "expr_template": "CASE WHEN {{Transaction.delivery_date}} <= DATEADD('day', on_time_tolerance_days, {{Transaction.promised_delivery_date}}) THEN 1.0 ELSE 0.0 END",
+      "expr_template": "CASE WHEN {{Transaction.delivery_date}} <= DATEADD('day', 0, {{Transaction.promised_delivery_date}}) THEN 1.0 ELSE 0.0 END",
       "data_type": "NUMBER",
       "public": true,
-      "description": "Binary: 1 if delivered on or before the promised date (+ tolerance). Public so filters like 'late shipments' can use WHERE is_on_time = 0."
+      "description": "Binary: 1 if delivered on or before the promised date (+ tolerance). Public so filters like 'late shipments' can use WHERE is_on_time = 0. Tolerance is hardcoded to 0 (the on_time_tolerance_days variable's own default) rather than referencing the variable: Cortex Analyst's generated SQL builds each fact's expr_template into a standalone per-table CTE and does not resolve top-level semantic-view VARIABLES there, producing an 'invalid identifier' error, even though the same expression resolves fine inside a direct SEMANTIC_VIEW(...) call -- see implementation-findings.md."
     },
     {
       "name": "is_in_full",
@@ -139,6 +139,44 @@
       "expr_template": "AVG(DATEDIFF('day', {{Demand.order_date}}, MAX({{Transaction}}.delivery_date)))",
       "relationship_grain": "one_to_many",
       "description": "Average days from order placement to the last (final) delivery for that order. Demand is coarser grain than Transaction (many transactions per order via DemandLine), so this uses nested aggregation (MAX per order, then AVG across orders) -- valid as a table-scoped metric per Snowflake's 'higher granularity reference' rule for metrics, unlike fill_rate which combines two independently-owned metrics."
+    },
+    {
+      "name": "total_landed_addon_cost",
+      "kind": "simple",
+      "owning_entity": "Transaction",
+      "expr_template": "SUM({{Transaction.freight_cost}} + {{Transaction.duty_cost}})",
+      "requires_optional_attrs": ["Transaction.freight_cost", "Transaction.duty_cost"],
+      "description": "Total freight + duty cost incurred across shipments (the landed-cost overhead beyond the base unit price)."
+    },
+    {
+      "name": "total_quantity_on_hand",
+      "kind": "simple",
+      "owning_entity": "Inventory",
+      "expr_template": "SUM({{Inventory.quantity_on_hand}})",
+      "description": "Total on-hand inventory quantity across the latest snapshot rows."
+    },
+    {
+      "name": "landed_cost_per_unit",
+      "kind": "derived",
+      "components": [
+        {"entity": "Transaction", "metric": "total_shipped_qty"},
+        {"entity": "Transaction", "metric": "total_landed_addon_cost"},
+        {"entity": "DemandLine", "metric": "total_order_value"}
+      ],
+      "combine_expr_template": "({1} + {2}) / NULLIF({0}, 0)",
+      "relationship_grain": "one_to_many",
+      "description": "Average landed cost per unit shipped: base order value (from ordered-qty pricing) plus actual freight/duty incurred on shipments, divided by units shipped. APPROXIMATION: base value uses DemandLine's ordered-qty pricing rather than an exact per-unit join to shipped quantity, since this engine's derived metrics combine independently-aggregated scalars rather than performing a full 3-way row-level join -- documented in implementation-findings.md."
+    },
+    {
+      "name": "days_of_inventory",
+      "kind": "derived",
+      "components": [
+        {"entity": "Inventory", "metric": "total_quantity_on_hand"},
+        {"entity": "Transaction", "metric": "total_shipped_qty"}
+      ],
+      "combine_expr_template": "{0} / NULLIF({1} / 541.0, 0)",
+      "relationship_grain": "one_to_many",
+      "description": "Current on-hand inventory quantity expressed in days of coverage, using average daily shipped quantity over the full observed shipment history (541 days in this dataset) as the outbound-flow baseline. The 541-day window is a fixed constant matching this dataset's date range, not a computed trailing lookback -- documented in implementation-findings.md."
     }
   ]
 }

@@ -461,7 +461,8 @@ def resolve_verified_queries(mapping, ontology, query_templates, view_alias):
             if not col_ok:
                 continue
             dim_name = q["dimension_attribute"]
-            dim_clause = f" DIMENSIONS {dim_name}"
+            alias = table_alias(mapping, entity_name)
+            dim_clause = f" DIMENSIONS {alias}.{dim_name}"
             select_cols = [dim_name] + select_cols
         order_clause = f" ORDER BY {q['order_by']}" if q.get("order_by") else ""
         sql = f"SELECT {', '.join(select_cols)} FROM SEMANTIC_VIEW(__{view_alias}{dim_clause} METRICS {metrics_clause}){order_clause}"

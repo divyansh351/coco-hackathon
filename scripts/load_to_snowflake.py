@@ -18,6 +18,7 @@ TABLES = [
     ("purchase_orders.csv", "PURCHASE_ORDERS"),
     ("po_lines.csv", "PO_LINES"),
     ("shipments.csv", "SHIPMENTS"),
+    ("inventory.csv", "INVENTORY"),
 ]
 
 DATABASE = "SC_DEMO"

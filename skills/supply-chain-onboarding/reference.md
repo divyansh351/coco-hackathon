@@ -90,6 +90,61 @@ the resolver (see Known limitations in SKILL.md).
    `implementation-findings.md` "Finding 3" for the full incident writeup
    (the `PARTS.PRIMARY_SUPPLIER_ID -> SUPPLIERS` case).
 
+4. **Composite-PK FK inference** -- `extract_metadata.py`'s FK-candidacy check
+   only skips a column when it IS the whole single-column PK
+   (`info["primary_key"] == [col_name]`); it does NOT skip individual member
+   columns of a composite PK. This matters for any snapshot/bridge-style
+   table (e.g. `Inventory`, keyed on `(part_id, plant_id)`) where both PK
+   columns are legitimately FKs to other tables -- skipping them entirely
+   (the earlier, wrong behavior) made such a table unmappable with 0.00
+   confidence. See `implementation-findings.md` Finding 6.
+
+5. **Avoid top-level `VARIABLES` in fact/metric `expr_template`s if the view
+   needs to work with a real Cortex Agent/Analyst tool**, not just direct
+   `SEMANTIC_VIEW()` SQL. Cortex Analyst's generated SQL builds each fact into
+   a standalone per-logical-table CTE and does not resolve top-level
+   semantic-view `VARIABLES` referenced there, even though the identical
+   expression resolves fine in a direct query. Inline the variable's default
+   value as a literal instead. See `implementation-findings.md` Finding 6.
+
+## Real Cortex Agent wiring (not just AI_COMPLETE prompt engineering)
+
+Once a canonical semantic view is deployed, wire a genuine governed
+conversational layer on top of it with:
+
+```sql
+CREATE AGENT <db>.<schema>.<agent_name> FROM SPECIFICATION $$
+tools:
+  - tool_spec:
+      type: "cortex_analyst_text_to_sql"
+      name: "<tool_name>"
+tool_resources:
+  <tool_name>:
+    execution_environment:
+      type: "warehouse"
+      warehouse: "<WAREHOUSE>"
+    semantic_view: "<db>.<schema>.<view_name>"
+$$
+```
+
+Invoke purely via SQL -- no External Access Integration, no REST call, no
+network egress needed:
+
+```sql
+SELECT SNOWFLAKE.CORTEX.DATA_AGENT_RUN(
+  '<db>.<schema>.<agent_name>',
+  '{"messages": [{"role": "user", "content": [{"type": "text", "text": "<question>"}]}]}',
+  TRUE
+)
+```
+
+The response `content` array mixes `text`, `tool_use` (including a
+`system_execute_sql` tool call with the generated SQL), and `tool_result`
+blocks (with `result_set.data` + `resultSetMetaData.rowType` for
+column names/types) -- see `app/qa.py`'s `_ask_via_agent()` for a parser, and
+keep the old prompt-engineering approach as an automatic fallback (agent
+availability/permissions can be account-specific).
+
 For the full incident history and the blind end-to-end validation run against
 `SC_DEMO.RAW`, see `implementation-findings.md` and
 `framework/runs/validation_report.md`.

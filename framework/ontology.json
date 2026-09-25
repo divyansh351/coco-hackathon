@@ -95,11 +95,27 @@
         {"name": "promised_delivery_date", "type_category": "date", "required": true, "synonyms": ["promise_date", "eta", "committed_date"]},
         {"name": "shipped_qty", "type_category": "numeric", "required": true, "synonyms": ["qty_shipped", "ship_qty"]},
         {"name": "received_qty", "type_category": "numeric", "required": false, "synonyms": ["qty_received", "receipt_qty"]},
-        {"name": "defect_qty", "type_category": "numeric", "required": false, "synonyms": ["qty_defective", "reject_qty", "defective_qty"]}
+        {"name": "defect_qty", "type_category": "numeric", "required": false, "synonyms": ["qty_defective", "reject_qty", "defective_qty"]},
+        {"name": "freight_cost", "type_category": "numeric", "required": false, "synonyms": ["shipping_cost", "freight_charge", "carrier_cost"]},
+        {"name": "duty_cost", "type_category": "numeric", "required": false, "synonyms": ["customs_duty", "import_duty", "tariff_cost"]}
       ],
       "foreign_keys": [
         {"references_entity": "DemandLine", "required": true},
         {"references_entity": "Supplier", "required": true},
+        {"references_entity": "Facility", "required": true}
+      ]
+    },
+    {
+      "name": "Inventory",
+      "aliases": ["Stock", "OnHandBalance", "InventorySnapshot"],
+      "description": "A point-in-time on-hand stock snapshot for an Item at a Facility, used to measure how many days of coverage current stock represents relative to observed outbound flow.",
+      "role": "inventory_snapshot",
+      "attributes": [
+        {"name": "quantity_on_hand", "type_category": "numeric", "required": true, "synonyms": ["on_hand_qty", "stock_qty", "qty_on_hand"]},
+        {"name": "as_of_date", "type_category": "date", "required": false, "synonyms": ["snapshot_date", "inventory_date"]}
+      ],
+      "foreign_keys": [
+        {"references_entity": "Part", "required": true},
         {"references_entity": "Facility", "required": true}
       ]
     }

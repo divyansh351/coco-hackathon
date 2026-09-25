@@ -1,15 +1,22 @@
 """
-"Ask Questions" tab logic: turns a natural-language question into a
-SEMANTIC_VIEW SQL query using SNOWFLAKE.CORTEX.AI_COMPLETE, grounded in the
-selected semantic view's actual structure (from DESCRIBE SEMANTIC VIEW) --
-not the full Cortex Analyst REST API, which would need an External Access
-Integration for the container to call out. See framework/README.md and
-implementation-findings.md for why.
+"Ask Questions" tab logic: turns a natural-language question into an answer
+grounded in the canonical semantic view.
+
+Primary path: SNOWFLAKE.CORTEX.DATA_AGENT_RUN against a real Cortex Agent
+(SC_DEMO.APP.SUPPLY_CHAIN_AGENT) whose tool is a genuine
+cortex_analyst_text_to_sql tool bound to the semantic view. This runs entirely
+inside Snowflake's SQL engine -- no External Access Integration, no REST call,
+no network egress from the container required (see implementation-findings.md).
+
+Fallback path: if the agent call fails for any reason (agent not found,
+permission issue, parsing failure), fall back to the original AI_COMPLETE +
+DESCRIBE SEMANTIC VIEW approach so the demo keeps working end to end.
 """
 import json
 import re
 
 AI_MODEL = "claude-sonnet-4-5"
+AGENT_FQN = "SC_DEMO.APP.SUPPLY_CHAIN_AGENT"
 
 
 def list_semantic_views(cur, database):
@@ -29,6 +36,84 @@ def describe_semantic_view(cur, view_fqn):
     cols = [c[0].lower() for c in cur.description]
     return [dict(zip(cols, row)) for row in rows]
 
+
+# ---------------------------------------------------------------------------
+# Primary path: real Cortex Agent via DATA_AGENT_RUN
+# ---------------------------------------------------------------------------
+
+_TYPE_MAP = {"fixed": float, "real": float, "text": str, "boolean": bool, "date": str, "timestamp_ntz": str}
+
+
+def _cast_row_value(raw, sql_type):
+    if raw is None:
+        return None
+    caster = _TYPE_MAP.get(sql_type, str)
+    try:
+        return caster(raw)
+    except (TypeError, ValueError):
+        return raw
+
+
+def _ask_via_agent(cur, agent_fqn, question, history=None):
+    """Calls SNOWFLAKE.CORTEX.DATA_AGENT_RUN and extracts (sql, cols, rows,
+    narrative) from the response. Raises on any unexpected shape so the
+    caller can fall back to the AI_COMPLETE path."""
+    successful_turns = [h for h in (history or []) if h.get("sql")]
+    text = question
+    if successful_turns:
+        context = "; ".join(f"Q: {h['question']}" for h in successful_turns[-5:])
+        text = f"(Earlier in this conversation: {context}) {question}"
+
+    payload = json.dumps({"messages": [{"role": "user", "content": [{"type": "text", "text": text}]}]})
+    escaped_agent = agent_fqn.replace("'", "''")
+    escaped_payload = payload.replace("'", "''")
+    cur.execute(
+        f"SELECT SNOWFLAKE.CORTEX.DATA_AGENT_RUN('{escaped_agent}', '{escaped_payload}', TRUE)"
+    )
+    raw = cur.fetchone()[0]
+    data = json.loads(raw) if isinstance(raw, str) else raw
+
+    sql = None
+    cols = None
+    rows = None
+    narrative_parts = []
+
+    content = data.get("content", [])
+    for i, block in enumerate(content):
+        btype = block.get("type")
+        if btype == "text":
+            narrative_parts.append(block["text"])
+        elif btype == "tool_use" and block.get("tool_use", {}).get("name") == "system_execute_sql":
+            sql = block["tool_use"]["input"].get("sql")
+            # The matching tool_result is typically the very next block.
+            for candidate in content[i + 1:i + 3]:
+                if candidate.get("type") != "tool_result":
+                    continue
+                for c in candidate["tool_result"].get("content", []):
+                    j = c.get("json", {})
+                    if "error" in j:
+                        raise RuntimeError(f"Agent SQL execution failed: {j['error']}")
+                    result_set = j.get("result_set")
+                    if result_set:
+                        row_type = result_set.get("resultSetMetaData", {}).get("rowType", [])
+                        cols = [rt["name"] for rt in row_type]
+                        types = [rt.get("type", "text") for rt in row_type]
+                        rows = [
+                            tuple(_cast_row_value(v, t) for v, t in zip(r, types))
+                            for r in result_set.get("data", [])
+                        ]
+                break
+
+    if sql is None or cols is None or rows is None:
+        raise ValueError("DATA_AGENT_RUN response did not contain a completed SQL tool result")
+
+    narrative = "\n\n".join(narrative_parts).strip()
+    return sql, cols, rows, narrative
+
+
+# ---------------------------------------------------------------------------
+# Fallback path: AI_COMPLETE + DESCRIBE SEMANTIC VIEW prompt engineering
+# ---------------------------------------------------------------------------
 
 def _summarize_structure(desc_rows):
     """Build a compact, LLM-friendly text summary of tables, their PUBLIC
@@ -92,10 +177,10 @@ def _extract_sql(text):
     raise ValueError(f"No SQL found in LLM response: {text[:300]}")
 
 
-def ask(cur, view_fqn, question, history=None):
+def _ask_via_ai_complete(cur, view_fqn, question, history=None):
     """history: optional list of {"question": ..., "sql": ...} from earlier
     turns in the same chat, so follow-up questions ("and by region?") can be
-    resolved with context. Returns (generated_sql, result_columns, result_rows)."""
+    resolved with context. Returns (generated_sql, result_columns, result_rows, narrative)."""
     desc_rows = describe_semantic_view(cur, view_fqn)
     structure = _summarize_structure(desc_rows)
 
@@ -145,4 +230,18 @@ Reply with ONLY the SQL query, no explanation, no markdown fences."""
     cur.execute(sql)
     cols = [c[0] for c in cur.description]
     rows = cur.fetchall()
-    return sql, cols, rows
+    return sql, cols, rows, ""
+
+
+# ---------------------------------------------------------------------------
+# Public entry point
+# ---------------------------------------------------------------------------
+
+def ask(cur, view_fqn, question, history=None, agent_fqn=AGENT_FQN):
+    """Returns (generated_sql, result_columns, result_rows, narrative).
+    Tries the real Cortex Agent (DATA_AGENT_RUN) first; falls back to the
+    AI_COMPLETE prompt-engineering approach if the agent call fails."""
+    try:
+        return _ask_via_agent(cur, agent_fqn, question, history=history)
+    except Exception:
+        return _ask_via_ai_complete(cur, view_fqn, question, history=history)

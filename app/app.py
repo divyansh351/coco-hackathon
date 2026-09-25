@@ -58,13 +58,15 @@ def render_result(df):
         st.bar_chart(df.set_index(label_col)[numeric_cols])
 
 
-def render_turn(question, sql=None, df=None, error=None):
+def render_turn(question, sql=None, df=None, error=None, narrative=None):
     with st.chat_message("user"):
         st.write(question)
     with st.chat_message("assistant"):
         if error:
             st.error(error, icon=":material/error:")
             return
+        if narrative:
+            st.write(narrative)
         render_result(df)
         with st.expander("Generated SQL"):
             st.code(sql, language="sql")
@@ -73,9 +75,9 @@ def render_turn(question, sql=None, df=None, error=None):
 def rerun_question(cur, view, question, history):
     with st.spinner("Generating and running SQL..."):
         try:
-            sql, cols, rows = qa.ask(cur, view, question, history=history)
+            sql, cols, rows, narrative = qa.ask(cur, view, question, history=history)
             df = pd.DataFrame(rows, columns=cols) if rows else pd.DataFrame(columns=cols)
-            history.append({"question": question, "sql": sql, "df": df})
+            history.append({"question": question, "sql": sql, "df": df, "narrative": narrative})
         except Exception as e:
             history.append({"question": question, "error": str(e)})
 
@@ -117,7 +119,7 @@ with tab_ask:
         )
 
     for i, turn in enumerate(history):
-        render_turn(turn["question"], turn.get("sql"), turn.get("df"), turn.get("error"))
+        render_turn(turn["question"], turn.get("sql"), turn.get("df"), turn.get("error"), turn.get("narrative"))
         if turn.get("error"):
             if st.button("Retry this question", key=f"retry_{i}"):
                 original_question = turn["question"]
@@ -147,8 +149,8 @@ with tab_onboard:
         with col2:
             st.markdown("**Target**")
             target_db = st.text_input("Database", value="SC_DEMO", key="tgt_db")
-            target_schema = st.text_input("Schema", value="ANALYTICS_AUTO", key="tgt_schema")
-        view_name = st.text_input("Semantic view name", value="SUPPLY_CHAIN_ANALYTICS_AUTO")
+            target_schema = st.text_input("Schema", value="ANALYTICS", key="tgt_schema")
+        view_name = st.text_input("Semantic view name", value="SUPPLY_CHAIN_ANALYTICS")
         run_clicked = st.button("Run onboarding pipeline", type="primary")
 
     if run_clicked:

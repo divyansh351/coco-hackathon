@@ -189,6 +189,10 @@ def gen_shipments(rng, po_lines, parts_by_id, po_by_id, suppliers_by_id, n_suppl
     shipment_id = 1
     shipment_count_choices = [1, 2, 3]
     shipment_count_weights = [0.80, 0.15, 0.05]
+    # Region-driven freight/duty overhead per unit -- APAC/EMEA suppliers incur
+    # higher landed-cost overhead than AMER (longer routes, import duties).
+    FREIGHT_PER_UNIT = {"APAC": 1.35, "EMEA": 0.85, "AMER": 0.35}
+    DUTY_RATE = {"APAC": 0.06, "EMEA": 0.04, "AMER": 0.015}
 
     for line in po_lines:
         part = parts_by_id[line["part_id"]]
@@ -240,6 +244,10 @@ def gen_shipments(rng, po_lines, parts_by_id, po_by_id, suppliers_by_id, n_suppl
             defect_frac = min(0.5, max(0.0, rng.gauss(expected_defect_frac, expected_defect_frac * 0.6)))
             defect_qty = min(received_qty, round(received_qty * defect_frac))
 
+            region = supplier["region"]
+            freight_cost = round(shipped_qty * FREIGHT_PER_UNIT[region] * rng.uniform(0.85, 1.15), 2)
+            duty_cost = round(shipped_qty * line["unit_price"] * DUTY_RATE[region] * rng.uniform(0.85, 1.15), 2)
+
             shipments.append({
                 "shipment_id": shipment_id,
                 "po_line_id": line["po_line_id"],
@@ -251,12 +259,36 @@ def gen_shipments(rng, po_lines, parts_by_id, po_by_id, suppliers_by_id, n_suppl
                 "shipped_qty": shipped_qty,
                 "received_qty": received_qty,
                 "defect_qty": defect_qty,
+                "freight_cost": freight_cost,
+                "duty_cost": duty_cost,
             })
             shipment_id += 1
     return shipments
 
 
-def validate(suppliers, parts, plants, customers, purchase_orders, po_lines, shipments):
+def gen_inventory(rng, shipments, po_lines_by_id):
+    """One snapshot row per (part, plant) that has shipment history, sized off
+    that part's observed shipped-qty rate over the window so days_of_inventory
+    lands in a plausible 15-45 day range rather than being arbitrary."""
+    shipped_by_part_plant = defaultdict(float)
+    for s in shipments:
+        part_id = po_lines_by_id[s["po_line_id"]]["part_id"]
+        shipped_by_part_plant[(part_id, s["plant_id"])] += s["shipped_qty"]
+
+    inventory = []
+    for (part_id, plant_id), total_shipped in shipped_by_part_plant.items():
+        avg_daily_shipped_qty = total_shipped / TOTAL_DAYS
+        quantity_on_hand = max(1, round(avg_daily_shipped_qty * rng.uniform(15, 45)))
+        inventory.append({
+            "part_id": part_id,
+            "plant_id": plant_id,
+            "quantity_on_hand": quantity_on_hand,
+            "as_of_date": END_DATE,
+        })
+    return inventory
+
+
+def validate(suppliers, parts, plants, customers, purchase_orders, po_lines, shipments, inventory):
     """Referential integrity + metric-variance sanity checks (Phase 1d style)."""
     supplier_ids = {s["supplier_id"] for s in suppliers}
     part_ids = {p["part_id"] for p in parts}
@@ -273,6 +305,10 @@ def validate(suppliers, parts, plants, customers, purchase_orders, po_lines, shi
     assert all(s["supplier_id"] in supplier_ids for s in shipments)
     assert all(s["plant_id"] in plant_ids for s in shipments)
     assert all(s["delivery_date"] >= s["ship_date"] for s in shipments)
+    assert all(s["freight_cost"] >= 0 and s["duty_cost"] >= 0 for s in shipments)
+    assert all(i["part_id"] in part_ids and i["plant_id"] in plant_ids for i in inventory)
+    assert all(i["quantity_on_hand"] > 0 for i in inventory)
+    assert len(inventory) > 0
     print("Referential integrity: PASS")
 
     line_ordered = {l["po_line_id"]: l["ordered_qty"] for l in po_lines}
@@ -296,8 +332,13 @@ def validate(suppliers, parts, plants, customers, purchase_orders, po_lines, shi
     print(f"On-time    : min={min(otrs):.1f} max={max(otrs):.1f} mean={statistics.mean(otrs):.1f}")
     print(f"Defect rate: min={min(defects):.2f} max={max(defects):.2f} mean={statistics.mean(defects):.2f}")
 
+    total_shipped_all = sum(s["shipped_qty"] for s in shipments)
+    total_on_hand = sum(i["quantity_on_hand"] for i in inventory)
+    implied_doi = total_on_hand / (total_shipped_all / TOTAL_DAYS)
+    print(f"Inventory  : {len(inventory)} (part,plant) rows, implied days_of_inventory~={implied_doi:.1f}")
 
-def write_csvs(out_dir, suppliers, parts, plants, customers, purchase_orders, po_lines, shipments):
+
+def write_csvs(out_dir, suppliers, parts, plants, customers, purchase_orders, po_lines, shipments, inventory):
     os.makedirs(out_dir, exist_ok=True)
     tables = {
         "suppliers.csv": (suppliers, ["supplier_id", "supplier_name", "country", "region", "tier",
@@ -311,7 +352,8 @@ def write_csvs(out_dir, suppliers, parts, plants, customers, purchase_orders, po
         "po_lines.csv": (po_lines, ["po_line_id", "po_id", "part_id", "ordered_qty", "unit_price"]),
         "shipments.csv": (shipments, ["shipment_id", "po_line_id", "supplier_id", "plant_id", "ship_date",
                                        "delivery_date", "promised_delivery_date", "shipped_qty",
-                                       "received_qty", "defect_qty"]),
+                                       "received_qty", "defect_qty", "freight_cost", "duty_cost"]),
+        "inventory.csv": (inventory, ["part_id", "plant_id", "quantity_on_hand", "as_of_date"]),
     }
     for filename, (rows, fields) in tables.items():
         path = os.path.join(out_dir, filename)
@@ -337,7 +379,10 @@ def generate_all(seed=SEED):
     suppliers_by_id = {s["supplier_id"]: s for s in suppliers}
     shipments = gen_shipments(rng, po_lines, parts_by_id, po_by_id, suppliers_by_id, N_SUPPLIERS)
 
-    return suppliers, parts, plants, customers, purchase_orders, po_lines, shipments
+    po_lines_by_id = {l["po_line_id"]: l for l in po_lines}
+    inventory = gen_inventory(rng, shipments, po_lines_by_id)
+
+    return suppliers, parts, plants, customers, purchase_orders, po_lines, shipments, inventory
 
 
 if __name__ == "__main__":

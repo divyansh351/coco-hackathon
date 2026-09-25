@@ -153,7 +153,12 @@ def infer_foreign_keys(cur, db, schema, manifest):
         for col_name, col_profile in info["columns"].items():
             if (table, col_name) in declared_fk_columns:
                 continue
-            if col_name in info["primary_key"]:
+            if info["primary_key"] == [col_name]:
+                # Skip only when this column IS the whole (single-column) PK --
+                # a table's own identity column can't also be a FK to itself.
+                # Composite-PK member columns (e.g. a snapshot/bridge table keyed
+                # on (part_id, plant_id)) are legitimate FK candidates and must
+                # still be considered.
                 continue
             if not FK_NAME_PATTERN.search(col_name):
                 continue

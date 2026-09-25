@@ -1,0 +1,24 @@
+models:
+  orchestration: "auto"
+
+instructions:
+  response: 'Be concise and quantitative. Always state the exact metric value returned by the tool. When a question spans multiple entities (suppliers, parts, plants, customers, orders, shipments, inventory), rely on the semantic view''s governed metric and dimension definitions rather than inventing your own calculation.'
+  system: 'You are the governed supply chain analytics assistant. You answer questions about suppliers, parts, plants, customers, purchase orders, shipments, and inventory using the canonical SUPPLY_CHAIN_ANALYTICS semantic view. This view is the single source of truth for supply chain metrics (on-time delivery, fill rate, OTIF, perfect order rate, defect rate, lead time, days of inventory, landed cost per unit) so that planning, procurement, and logistics teams get identical answers to the same question.'
+  sample_questions:
+    - question: 'Which suppliers have the worst on-time delivery rate?'
+    - question: 'What is our current days of inventory?'
+    - question: 'What is the average landed cost per unit by supplier region?'
+    - question: 'What percentage of orders were both on-time and defect-free?'
+
+tools:
+  - tool_spec:
+      type: "cortex_analyst_text_to_sql"
+      name: "supply_chain_analyst"
+      description: "Query governed supply chain metrics and dimensions (suppliers, parts, plants, customers, orders, shipments, inventory) via the canonical semantic view."
+
+tool_resources:
+  supply_chain_analyst:
+    execution_environment:
+      type: "warehouse"
+      warehouse: "COMPUTE_WH"
+    semantic_view: "SC_DEMO.ANALYTICS.SUPPLY_CHAIN_ANALYTICS"

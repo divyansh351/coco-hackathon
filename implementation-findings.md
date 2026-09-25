@@ -105,20 +105,22 @@ is caught at all.
 - `SC_DEMO.RAW.*` / `SC_DEMO.ANALYTICS.SUPPLY_CHAIN_ANALYTICS` — live Snowflake
   objects.
 
-## Verified ground-truth metric values (SC_DEMO, current dataset)
+## Verified ground-truth metric values (SC_DEMO, current dataset, post-Finding-6)
 
 | Metric | Value |
 |---|---|
-| fill_rate | 81.75817200% |
-| on_time_delivery_rate | 82.5875% |
-| otif_rate | 5.3069% |
-| perfect_order_rate | 3.4194% |
-| supplier_defect_rate | 2.16973900% |
-| avg_lead_time_days | 14.556454 |
-| order_cycle_time_days | 21.1054 |
+| fill_rate | 81.87859900% |
+| on_time_delivery_rate | 82.0747% |
+| otif_rate | 5.1012% |
+| perfect_order_rate | 3.4369% |
+| supplier_defect_rate | 2.18254100% |
+| avg_lead_time_days | 14.578569 |
+| order_cycle_time_days | 21.2064 |
+| days_of_inventory | 30.16050651 |
+| landed_cost_per_unit | 461.2102648427 |
 
-All 17 persona-question verified queries in the YAML were smoke-tested and
-execute correctly against the live view.
+All 13 persona-question verified queries in the current instantiation execute
+correctly against the live view (`framework/runs/20260925_200147/`).
 
 ## Finding 3 — undeclared multi-path relationships from *incidental* FKs (found while automating Findings 1 & 2)
 
@@ -231,8 +233,111 @@ OAuth-session and PAT-session code paths.
 **Verified:** `extract_metadata.py` and the full `onboard.py` pipeline both
 ran via `--connection UU60334_PAT` with zero browser interaction, reproducing
 the same 7 canonical metrics exactly and passing 10 of 12 verified queries (2
-fail on a pre-existing, unrelated ambiguous-dimension-name bug when both
-`Supplier.region` and `Facility.region` appear in the same query -- not caused
-by this fix, not yet resolved).
+failed at the time on an ambiguous-dimension-name bug when both
+`Supplier.region` and `Facility.region` appear in the same query -- fixed in
+Finding 6 below).
+
+## Finding 6 — closing the gap to the original requirement (ontology completeness, real Cortex Analyst wiring, cross-persona proof)
+
+A later review against the original requirement ("build an industry ontology
+... canonical metrics (on time delivery, fill rate, days of inventory, landed
+cost) ... layer governed conversational analytics on top ... demonstrate that
+the same metric resolves identically across personas") found four concrete
+gaps versus what had actually been built, all closed in this pass:
+
+**1. Two of the four "canonical metrics" named in the requirement (days of
+inventory, landed cost) didn't exist.** Added a new `Inventory` entity/table
+(`SC_DEMO.RAW.INVENTORY`: one snapshot row per part/plant, `quantity_on_hand`,
+`as_of_date`) and `freight_cost`/`duty_cost` attributes on `Transaction`
+(`SC_DEMO.RAW.SHIPMENTS`), then two new view-level derived metrics:
+`days_of_inventory` and `landed_cost_per_unit`. The instantiation engine's
+derived-metric resolver already generically loops over an arbitrary-length
+`components` list (not hardcoded to 2), so a 3-component metric
+(`landed_cost_per_unit`) needed zero engine changes -- template JSON only.
+`landed_cost_per_unit` is a documented **approximation**: it adds
+`DemandLine.total_order_value` (priced off ordered quantity) to actual
+shipment-level freight/duty, divided by shipped quantity, rather than an exact
+per-unit 3-way join -- the engine combines independently pre-aggregated
+scalars (per Finding 1), not row-level joins, so an exact join was out of
+scope. `days_of_inventory` divides current on-hand quantity by average daily
+shipped quantity over the dataset's full 541-day observed window (a fixed
+constant matching the synthetic dataset's date range, not a computed trailing
+lookback).
+
+**2. A real engine bug blocked onboarding any table with a composite primary
+key that is also its FK columns** (a common shape for snapshot/bridge tables
+like `INVENTORY`, keyed on `(part_id, plant_id)`). `extract_metadata.py`'s FK
+inference skipped *any* column that was part of the local table's own primary
+key -- correct for single-column identity PKs, wrong for composite PKs whose
+member columns are legitimate FKs to other tables. Fixed to only skip when the
+column IS the whole (single-column) PK: `info["primary_key"] == [col_name]`,
+not `col_name in info["primary_key"]`. Without this fix, `INVENTORY` mapped
+with 0.00 confidence and both its relationships were rejected at the
+cross-validation gate.
+
+**3. "Hierarchies" have no native Snowflake semantic-view construct.** Checked
+the full `CREATE SEMANTIC VIEW` DDL grammar and the YAML spec directly: neither
+has a `HIERARCHIES` clause. The honest resolution, and the only mechanism the
+platform actually supports for hierarchical drill-down, is multiple correlated
+dimensions on the same table -- region/country already exist on `Supplier` and
+`Facility`, and `tier` is an ordered categorical dimension on `Supplier`. This
+is not a gap that can be closed with more template JSON; it's a platform
+limit, documented here rather than papered over with invented syntax.
+
+**4. The "conversational analytics layer" was custom `AI_COMPLETE`
+prompt-engineering, not real Cortex Analyst.** Replaced it with an actual
+Cortex Agent: `CREATE AGENT SC_DEMO.APP.SUPPLY_CHAIN_AGENT FROM SPECIFICATION`
+with a `cortex_analyst_text_to_sql` tool whose `tool_resources.semantic_view`
+points at the canonical view, invoked via
+`SNOWFLAKE.CORTEX.DATA_AGENT_RUN(agent_fqn, json_messages, TRUE)`. This runs
+entirely inside Snowflake's SQL engine -- confirmed empirically, no External
+Access Integration or network egress was needed from the SPCS container,
+contrary to the earlier assumption that real Cortex Analyst access would
+require a REST call out. `app/qa.py` now calls the agent first and falls back
+to the original `AI_COMPLETE` approach only if the agent call raises (agent
+missing, permission issue, unexpected response shape) -- both paths return
+the same `(sql, cols, rows, narrative)` contract `app/app.py` consumes.
+
+**Follow-on bug found while wiring the agent, fixed the same way as Finding
+1's underlying lesson (don't assume it just works because it compiles):**
+Cortex Analyst's generated SQL builds each fact's `expr_template` into a
+standalone per-logical-table CTE, and does **not** resolve top-level
+semantic-view `VARIABLES` referenced inside that expression -- even though the
+identical expression resolves fine inside a direct `SEMANTIC_VIEW(...)` call.
+The `is_on_time` fact referenced the `on_time_tolerance_days` variable; every
+agent call that touched on-time delivery failed with `invalid identifier
+'ON_TIME_TOLERANCE_DAYS'`, while the same metric worked perfectly when queried
+directly. Fixed by inlining the variable's own default value (`0`) as a
+literal in the fact expression instead of referencing the variable -- the
+variable was never exposed to any UI control anyway, so nothing was lost.
+**Practical implication:** avoid referencing top-level `VARIABLES` inside
+fact/metric `expr_template`s if the semantic view needs to work with Cortex
+Analyst/Agents, not just direct `SEMANTIC_VIEW()` SQL.
+
+**Ambiguous-dimension bug (flagged as unresolved in Finding 4) also fixed
+here:** `resolve_verified_queries()` in `instantiate_template.py` built
+`DIMENSIONS <dim_name>` unqualified, which is ambiguous whenever the same
+dimension name (e.g. `region`) exists on more than one table in the view.
+Fixed by qualifying the `DIMENSIONS` clause with the resolved table alias
+(`DIMENSIONS supplier.region`) while leaving the outer `SELECT` list
+unqualified (since `SEMANTIC_VIEW()` output columns are always unqualified) --
+all 13 persona verified queries now pass, up from 10/12.
+
+**Cross-persona consistency, demonstrated rather than asserted:** created
+three real RBAC roles (`SC_PLANNING_ROLE`, `SC_PROCUREMENT_ROLE`,
+`SC_LOGISTICS_ROLE`), each granted only `SELECT` on the canonical semantic
+view (no direct access to `SC_DEMO.RAW.*`), and ran the same query
+(`otif_rate`, `fill_rate`, `days_of_inventory`, `landed_cost_per_unit`) under
+each via `USE ROLE` -- byte-identical results across all three. See
+`framework/runs/persona_consistency_check.md`. Honest scope note included
+there: this proves the governed view is RBAC-independent, not that the
+deployed Streamlit app switches personas at the UI level (its SPCS container
+runs under one fixed service role) -- a genuinely different, larger piece of
+work not attempted here.
+
+**Converged to one canonical view:** the ontology-driven pipeline now targets
+`SC_DEMO.ANALYTICS.SUPPLY_CHAIN_ANALYTICS` directly (replacing the original
+hand-built view in place), and the duplicate `SC_DEMO.ANALYTICS_AUTO` schema
+was dropped -- there is now exactly one source of truth, not two.
 
 
