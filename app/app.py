@@ -16,17 +16,78 @@ st.set_page_config(page_title="Supply Chain Semantic Layer", page_icon=":materia
 st.markdown(
     """
     <style>
-    .block-container { padding-top: 2rem; max-width: 1100px; }
-    [data-testid="stChatMessage"] { padding: 0.9rem 1.1rem; border-radius: 14px; margin-bottom: 0.6rem; }
-    [data-testid="stChatMessageContent"] p { margin-bottom: 0.4rem; }
-    div[data-testid="stMetric"] {
-        background: rgba(41, 181, 232, 0.08);
-        border: 1px solid rgba(41, 181, 232, 0.25);
-        border-radius: 12px;
-        padding: 0.8rem 1rem;
+    /* ---- App chrome: hide Streamlit boilerplate for a cleaner "product" feel ---- */
+    #MainMenu, footer, [data-testid="stDecoration"] { visibility: hidden; }
+    header[data-testid="stHeader"] { background: transparent; }
+
+    html, body, [class*="css"] {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
     }
-    h1 { font-weight: 650; }
-    .stTabs [data-baseweb="tab-list"] { gap: 1.5rem; }
+
+    /* ---- Centered, narrow chat column, like Claude/ChatGPT ---- */
+    .block-container {
+        padding-top: 1.5rem;
+        padding-bottom: 6rem;
+        max-width: 780px;
+        margin: 0 auto;
+    }
+
+    h1 { font-weight: 650; font-size: 1.5rem; letter-spacing: -0.01em; }
+    .stTabs [data-baseweb="tab-list"] { gap: 1.5rem; justify-content: center; }
+    .stTabs [data-baseweb="tab"] { font-weight: 550; }
+
+    /* ---- Chat messages: no boxed bubbles for the assistant, soft pill for the user ---- */
+    [data-testid="stChatMessage"] {
+        padding: 0.15rem 0;
+        margin-bottom: 1.1rem;
+        border: none;
+        background: transparent;
+        gap: 0.75rem;
+    }
+    [data-testid="stChatMessageAvatarUser"],
+    [data-testid="stChatMessageAvatarAssistant"] {
+        width: 30px;
+        height: 30px;
+        font-size: 0.95rem;
+    }
+    [data-testid="stChatMessageContent"] p { margin-bottom: 0.5rem; line-height: 1.55; }
+
+    /* user turn gets a soft rounded card so it reads as "input", assistant flows freely */
+    div[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) [data-testid="stChatMessageContent"] {
+        background: rgba(120, 120, 128, 0.10);
+        border-radius: 16px;
+        padding: 0.65rem 1rem;
+        display: inline-block;
+    }
+
+    /* ---- Metric cards ---- */
+    div[data-testid="stMetric"] {
+        background: rgba(41, 181, 232, 0.07);
+        border: 1px solid rgba(41, 181, 232, 0.20);
+        border-radius: 14px;
+        padding: 0.9rem 1.1rem;
+    }
+
+    /* ---- Chat input: rounded pill with soft shadow, ChatGPT/Claude style ---- */
+    [data-testid="stChatInput"] {
+        border-radius: 24px;
+        box-shadow: 0 2px 14px rgba(0, 0, 0, 0.08);
+    }
+    [data-testid="stChatInput"] textarea { font-size: 0.98rem; }
+
+    /* ---- Suggested-prompt chips on the welcome screen ---- */
+    div[class*="st-key-chip_container_"] button {
+        border-radius: 999px !important;
+        font-size: 0.85rem !important;
+        padding: 0.5rem 1rem !important;
+        border-color: rgba(120, 120, 128, 0.25) !important;
+    }
+
+    /* ---- Buttons generally a touch rounder ---- */
+    .stButton button { border-radius: 10px; }
+
+    /* ---- Sidebar ---- */
+    section[data-testid="stSidebar"] { border-right: 1px solid rgba(120,120,128,0.15); }
     </style>
     """,
     unsafe_allow_html=True,
@@ -62,21 +123,22 @@ def render_result(df):
 
 
 def render_turn(question, sql=None, df=None, error=None, narrative=None):
-    with st.chat_message("user"):
+    with st.chat_message("user", avatar="🧑"):
         st.write(question)
-    with st.chat_message("assistant"):
+    with st.chat_message("assistant", avatar="✨"):
         if error:
             st.error(error, icon=":material/error:")
             return
         if narrative:
             st.write(narrative)
         render_result(df)
-        with st.expander("Generated SQL"):
-            st.code(sql, language="sql")
+        if sql:
+            with st.expander("Show SQL"):
+                st.code(sql, language="sql")
 
 
 def rerun_question(cur, view, question, history):
-    with st.spinner("Generating and running SQL..."):
+    with st.spinner("Thinking..."):
         try:
             sql, cols, rows, narrative = qa.ask(cur, view, question, history=history)
             df = pd.DataFrame(rows, columns=cols) if rows else pd.DataFrame(columns=cols)
@@ -88,41 +150,60 @@ def rerun_question(cur, view, question, history):
             history.append({"question": question, "error": str(e)})
 
 
-st.title("Supply Chain Semantic Layer")
-st.caption("Ontology-mapping onboarding pipeline + a chat interface over your deployed semantic views.")
+SUGGESTIONS = [
+    "What is the overall fill rate?",
+    "Which suppliers have the worst on-time delivery rate?",
+    "What is our current days of inventory?",
+    "What's the average landed cost per unit by supplier region?",
+]
 
-tab_ask, tab_onboard = st.tabs(["Ask Questions", "Onboard Source"])
+with st.sidebar:
+    st.markdown("### :material/insights: Supply Chain Analytics")
+    st.caption("Governed semantic layer chat + onboarding")
+
+    st.divider()
+    st.markdown("**Data source**")
+    database_for_search = st.text_input("Database", value="SC_DEMO", label_visibility="collapsed")
+    cur = get_cursor()
+    try:
+        views = qa.list_semantic_views(cur, database_for_search)
+    except Exception as e:
+        st.error(f"Could not list semantic views: {e}")
+        views = []
+
+    selected_view = st.selectbox("Semantic view", views, label_visibility="collapsed") if views else None
+
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = {}
+    if selected_view and selected_view not in st.session_state.chat_history:
+        st.session_state.chat_history[selected_view] = []
+    history = st.session_state.chat_history.get(selected_view, [])
+
+    st.divider()
+    if st.button(":material/add: New chat", use_container_width=True):
+        history.clear()
+        st.rerun()
+
+tab_ask, tab_onboard = st.tabs([":material/chat: Ask Questions", ":material/build: Onboard Source"])
 
 with tab_ask:
-    with st.sidebar:
-        st.header("Ask Questions")
-        database_for_search = st.text_input("Database", value="SC_DEMO")
-        cur = get_cursor()
-        try:
-            views = qa.list_semantic_views(cur, database_for_search)
-        except Exception as e:
-            st.error(f"Could not list semantic views: {e}")
-            views = []
-
-        selected_view = st.selectbox("Semantic view", views) if views else None
-
-        if "chat_history" not in st.session_state:
-            st.session_state.chat_history = {}
-        if selected_view and selected_view not in st.session_state.chat_history:
-            st.session_state.chat_history[selected_view] = []
-        history = st.session_state.chat_history.get(selected_view, [])
-
-        if st.button("Clear conversation", use_container_width=True):
-            history.clear()
-            st.rerun()
-
     if not views:
         st.warning("No semantic views found (or none visible to this role).")
     elif not history:
-        st.info(
-            f"Ask a question about **{selected_view}** below. Try: "
-            "\"What is the overall fill rate?\" or \"Which suppliers have the worst on-time delivery rate?\""
+        st.markdown(
+            "<div style='text-align:center; padding-top: 4rem;'>"
+            "<h2 style='font-weight:600;'>What do you want to know?</h2>"
+            f"<p style='color: gray;'>Ask anything about <b>{selected_view.split('.')[-1] if selected_view else ''}</b> "
+            "-- grounded in governed metrics, not raw columns.</p></div>",
+            unsafe_allow_html=True,
         )
+        chip_cols = st.columns(2)
+        for i, suggestion in enumerate(SUGGESTIONS):
+            with chip_cols[i % 2]:
+                with st.container(key=f"chip_container_{i}"):
+                    if st.button(suggestion, key=f"chip_{i}", use_container_width=True):
+                        rerun_question(cur, selected_view, suggestion, history)
+                        st.rerun()
 
     for i, turn in enumerate(history):
         render_turn(turn["question"], turn.get("sql"), turn.get("df"), turn.get("error"), turn.get("narrative"))
@@ -133,7 +214,7 @@ with tab_ask:
                 rerun_question(cur, selected_view, original_question, history)
                 st.rerun()
 
-    question = st.chat_input("Ask a question...")
+    question = st.chat_input("Message the supply chain assistant...")
     if question and selected_view:
         rerun_question(cur, selected_view, question, history)
         st.rerun()
