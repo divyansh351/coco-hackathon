@@ -1,11 +1,15 @@
 """
-Terminal-style visual theme for the Streamlit app: dark background, monospace
-font, sharp corners, green terminal-readout accents. Kept separate from
-app.py so page wiring and visual styling can change independently.
+Visual theme for the Streamlit app: a plain terminal look -- dark
+background, monospace font, terracotta accent used only for text/borders on
+functional elements (never decorative boxes). Kept separate from app.py so
+page wiring and visual styling can change independently.
 """
 import streamlit as st
 
-TERMINAL_GREEN = "#39ff88"
+ACCENT = "#D97757"       # Claude's terracotta accent
+BG = "#171716"           # near-black warm charcoal
+TEXT = "#e8e4de"
+MUTED = "#8a8680"
 
 _CSS = f"""
 <style>
@@ -13,12 +17,12 @@ _CSS = f"""
 #MainMenu, footer, [data-testid="stDecoration"] {{ visibility: hidden; }}
 header[data-testid="stHeader"] {{ background: transparent; }}
 
-/* ---- Terminal aesthetic: monospace everywhere, dark, sharp corners ---- */
+/* ---- Terminal aesthetic: monospace everywhere, no decorative boxes ---- */
 html, body, [class*="css"], input, textarea, button {{
     font-family: "Cascadia Code", "JetBrains Mono", "Fira Code", Consolas, "Courier New", monospace !important;
 }}
 
-.stApp {{ background-color: #0a0e0c; }}
+.stApp {{ background-color: {BG}; color: {TEXT}; }}
 
 .block-container {{
     padding-top: 1.5rem;
@@ -27,113 +31,120 @@ html, body, [class*="css"], input, textarea, button {{
     margin: 0 auto;
 }}
 
-h1, h2, h3 {{ color: {TERMINAL_GREEN}; font-weight: 600; text-shadow: 0 0 6px rgba(57,255,136,0.25); }}
-h1 {{ font-size: 1.4rem; }}
+h1, h2, h3 {{ color: {TEXT}; font-weight: 600; }}
+h1 {{ font-size: 1.3rem; }}
 
-.term-titlebar {{
-    border: 1px solid rgba(57,255,136,0.35);
-    border-bottom: none;
-    border-radius: 6px 6px 0 0;
-    padding: 0.4rem 0.9rem;
-    font-size: 0.8rem;
-    color: rgba(201,247,216,0.6);
-    background: rgba(57,255,136,0.05);
-    display: flex;
-    gap: 0.4rem;
-    align-items: center;
-}}
-.term-dot {{ width: 9px; height: 9px; border-radius: 50%; display: inline-block; }}
+.stTabs [data-baseweb="tab-list"] {{ gap: 1.5rem; justify-content: center; border-bottom: 1px solid rgba(217,119,87,0.15); }}
+.stTabs [data-baseweb="tab"] {{ font-weight: 550; color: {MUTED}; }}
+.stTabs [aria-selected="true"] {{ color: {ACCENT} !important; }}
 
-.stTabs [data-baseweb="tab-list"] {{ gap: 1.5rem; justify-content: center; border-bottom: 1px solid rgba(57,255,136,0.2); }}
-.stTabs [data-baseweb="tab"] {{ font-weight: 550; color: rgba(201,247,216,0.7); }}
-.stTabs [aria-selected="true"] {{ color: {TERMINAL_GREEN} !important; }}
-
-/* ---- Chat messages styled as terminal blocks ---- */
+/* ---- Chat messages: plain terminal-output flow, no boxes ---- */
 [data-testid="stChatMessage"] {{
-    padding: 0.6rem 0.9rem;
-    margin-bottom: 0.9rem;
-    border: 1px solid rgba(57,255,136,0.18);
-    border-radius: 4px;
-    background: rgba(57,255,136,0.03);
+    padding: 0.2rem 0;
+    margin-bottom: 0.3rem;
+    border: none;
+    background: transparent;
     gap: 0.6rem;
 }}
 [data-testid="stChatMessageAvatarUser"],
 [data-testid="stChatMessageAvatarAssistant"] {{
-    width: 26px;
-    height: 26px;
-    border-radius: 3px !important;
-    background: transparent !important;
-    font-size: 0.9rem;
+    display: none;
 }}
 [data-testid="stChatMessageContent"] p {{
-    margin-bottom: 0.5rem;
-    line-height: 1.5;
-    color: #c9f7d8;
+    margin-bottom: 0.4rem;
+    line-height: 1.55;
+    color: {TEXT};
 }}
 [data-testid="stChatMessageContent"] code {{
-    color: {TERMINAL_GREEN};
-    background: rgba(57,255,136,0.08);
+    color: {ACCENT};
+    background: transparent;
+}}
+[data-testid="stChatMessage"] [data-testid="stCaptionContainer"] {{
+    color: {ACCENT};
+    font-weight: 600;
+    text-transform: lowercase;
+    margin-bottom: 0.1rem;
 }}
 
-/* user turn: prompt-like, slightly brighter border */
-div[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {{
-    border-color: rgba(57,255,136,0.4);
-    background: rgba(57,255,136,0.06);
-}}
-
-/* ---- Metric cards: terminal readout style ---- */
+/* ---- Metric readouts: plain key/value text, no card ---- */
 div[data-testid="stMetric"] {{
-    background: #0d1310;
-    border: 1px solid rgba(57,255,136,0.35);
-    border-radius: 4px;
-    padding: 0.9rem 1.1rem;
+    background: transparent;
+    border: none;
+    padding: 0;
 }}
 div[data-testid="stMetric"] [data-testid="stMetricValue"] {{
-    color: {TERMINAL_GREEN};
-    text-shadow: 0 0 8px rgba(57,255,136,0.35);
+    color: {ACCENT};
+}}
+div[data-testid="stMetric"] [data-testid="stMetricLabel"] {{
+    color: {MUTED};
 }}
 
-/* ---- Chat input styled like a shell prompt ---- */
+/* ---- Chat input: underline prompt, pinned to the bottom of the viewport ----
+   Deliberately NOT touching position/left/width/margin here: Streamlit's own
+   bottom-bar container already aligns itself with the main content column
+   (accounting for the sidebar's current width). Overriding those properties
+   previously caused the input to render shifted left of the chat column. */
+[data-testid="stBottom"] {{
+    background: {BG} !important;
+    border-top: 1px solid rgba(217,119,87,0.15);
+}}
+[data-testid="stBottomBlockContainer"] {{
+    padding-top: 0.6rem;
+}}
 [data-testid="stChatInput"] {{
-    border-radius: 4px;
-    border: 1px solid rgba(57,255,136,0.4) !important;
-    background: #0d1310 !important;
-    box-shadow: 0 0 12px rgba(57,255,136,0.06);
+    border-radius: 0;
+    border: none !important;
+    border-bottom: 1px solid rgba(217,119,87,0.4) !important;
+    background: transparent !important;
 }}
 [data-testid="stChatInput"] textarea {{
     font-size: 0.95rem;
-    color: {TERMINAL_GREEN} !important;
-    caret-color: {TERMINAL_GREEN};
+    color: {TEXT} !important;
+    caret-color: {ACCENT};
 }}
 
-/* ---- Buttons: sharp, bracketed, terminal-command look ---- */
+/* ---- Buttons: plain text, no border/box ---- */
 .stButton button {{
-    border-radius: 3px;
-    border: 1px solid rgba(57,255,136,0.35);
-    background: rgba(57,255,136,0.04);
-    color: {TERMINAL_GREEN};
+    border: none;
+    background: transparent;
+    color: {MUTED};
+    text-align: left;
+    padding-left: 0;
 }}
 .stButton button:hover {{
-    border-color: {TERMINAL_GREEN};
-    background: rgba(57,255,136,0.12);
+    color: {ACCENT};
+    background: transparent;
+    text-decoration: underline;
 }}
 
-/* ---- Code blocks / expanders ---- */
+/* ---- Persona toggle: plain text options, no boxes ---- */
+div[data-testid="stRadio"] > div {{ gap: 0.8rem; }}
+div[data-testid="stRadio"] label {{
+    border: none;
+    background: transparent;
+    padding: 0;
+}}
+
+/* ---- Text inputs / selects: underline only ---- */
+[data-testid="stTextInput"] input, [data-testid="stSelectbox"] div[data-baseweb="select"] > div {{
+    border: none !important;
+    border-bottom: 1px solid rgba(217,119,87,0.3) !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+}}
+
+/* ---- Code blocks / expanders: minimal, no border box ---- */
 [data-testid="stExpander"] {{
-    border: 1px solid rgba(57,255,136,0.2) !important;
-    border-radius: 4px !important;
-    background: rgba(57,255,136,0.02);
+    border: none !important;
+    background: transparent;
 }}
-pre, code {{ border-radius: 3px !important; }}
 
-/* ---- Dataframes ---- */
-[data-testid="stDataFrame"] {{ border: 1px solid rgba(57,255,136,0.2); border-radius: 4px; }}
-
-/* ---- Sidebar ---- */
+/* ---- Sidebar: same palette, separated from the chat pane by a divider ---- */
 section[data-testid="stSidebar"] {{
-    border-right: 1px solid rgba(57,255,136,0.2);
-    background-color: #0a0e0c;
+    background-color: {BG};
+    border-right: 1px solid rgba(217,119,87,0.2);
 }}
+section[data-testid="stSidebar"] hr {{ border-color: rgba(217,119,87,0.15); }}
 </style>
 """
 

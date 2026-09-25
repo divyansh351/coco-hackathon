@@ -78,13 +78,20 @@ def _ask_via_agent(cur, agent_fqn, question, history=None):
     rows = None
     narrative_parts = []
 
+    # The agent can self-correct: try SQL, get an error back, retry with
+    # different SQL, and eventually succeed -- all within the same response.
+    # Only the LAST successful system_execute_sql result should be used as
+    # the answer; an earlier failed attempt must not abort parsing (it isn't
+    # the final outcome), so intermediate tool errors are tracked but not
+    # raised immediately.
     content = data.get("content", [])
+    last_tool_error = None
     for i, block in enumerate(content):
         btype = block.get("type")
         if btype == "text":
             narrative_parts.append(block["text"])
         elif btype == "tool_use" and block.get("tool_use", {}).get("name") == "system_execute_sql":
-            sql = block["tool_use"]["input"].get("sql")
+            candidate_sql = block["tool_use"]["input"].get("sql")
             # The matching tool_result is typically the very next block.
             for candidate in content[i + 1:i + 3]:
                 if candidate.get("type") != "tool_result":
@@ -92,16 +99,19 @@ def _ask_via_agent(cur, agent_fqn, question, history=None):
                 for c in candidate["tool_result"].get("content", []):
                     j = c.get("json", {})
                     if "error" in j:
-                        raise RuntimeError(f"Agent SQL execution failed: {j['error']}")
+                        last_tool_error = j["error"]
+                        continue
                     result_set = j.get("result_set")
                     if result_set:
                         row_type = result_set.get("resultSetMetaData", {}).get("rowType", [])
+                        sql = candidate_sql
                         cols = [rt["name"] for rt in row_type]
                         types = [rt.get("type", "text") for rt in row_type]
                         rows = [
                             tuple(_cast_row_value(v, t) for v, t in zip(r, types))
                             for r in result_set.get("data", [])
                         ]
+                        last_tool_error = None
                 break
 
     if sql is None:
@@ -180,11 +190,20 @@ def _extract_sql(text):
             pass
     match = re.search(r"```(?:sql)?\s*(.*?)```", text, re.DOTALL | re.IGNORECASE)
     if match:
-        return match.group(1).strip()
-    match = re.search(r"(SELECT\b.*)", text, re.DOTALL | re.IGNORECASE)
-    if match:
-        return match.group(1).strip().rstrip(";")
-    raise ValueError(f"No SQL found in LLM response: {text[:300]}")
+        sql = match.group(1).strip()
+    else:
+        match = re.search(r"(SELECT\b.*)", text, re.DOTALL | re.IGNORECASE)
+        if not match:
+            raise ValueError(f"No SQL found in LLM response: {text[:300]}")
+        sql = match.group(1).strip().rstrip(";")
+
+    # The model occasionally hallucinates an empty METRICS()/DIMENSIONS()
+    # clause for questions that don't need one (e.g. a plain aggregate with
+    # no breakdown) -- "DIMENSIONS )" is a Snowflake syntax error, not just
+    # a no-op, so strip it defensively rather than relying on prompt wording
+    # alone to prevent it every time.
+    sql = re.sub(r"\b(METRICS|DIMENSIONS)\s*\)", ")", sql, flags=re.IGNORECASE)
+    return sql
 
 
 def _ask_via_ai_complete(cur, view_fqn, question, history=None):
@@ -233,6 +252,11 @@ resolve it using the previous turns above into a complete, standalone query.
 If the question does NOT require querying data (e.g. it's an opinion,
 explanation, or "what would you suggest" question), do not invent a query --
 reply with exactly `NO_SQL_NEEDED:` followed by a short plain-text answer.
+
+If the question has no natural breakdown (e.g. a single overall metric with
+no "by X"), do NOT include an empty `DIMENSIONS()` clause -- omit the
+DIMENSIONS clause entirely rather than writing `DIMENSIONS )` with nothing
+inside it.
 
 Otherwise, reply with ONLY the SQL query, no explanation, no markdown fences."""
 

@@ -16,8 +16,16 @@ import snowflake.connector
 SPCS_TOKEN_PATH = "/snowflake/session/token"
 
 
+def is_spcs():
+    """True when running inside the deployed SPCS container (OAuth session,
+    can freely USE ROLE). False for the local PAT-based dev fallback, which
+    is role-restricted and cannot switch roles -- see Finding 4 in
+    implementation-findings.md."""
+    return os.path.exists(SPCS_TOKEN_PATH)
+
+
 def get_connection():
-    if os.path.exists(SPCS_TOKEN_PATH):
+    if is_spcs():
         with open(SPCS_TOKEN_PATH, encoding="utf-8") as f:
             token = f.read()
         return snowflake.connector.connect(
