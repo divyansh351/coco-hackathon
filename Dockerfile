@@ -7,6 +7,7 @@ RUN pip install --no-cache-dir -r app/requirements.txt
 
 COPY framework/ ./framework/
 COPY app/ ./app/
+COPY .streamlit/ ./.streamlit/
 
 EXPOSE 8080
 

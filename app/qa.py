@@ -58,7 +58,7 @@ def _ask_via_agent(cur, agent_fqn, question, history=None):
     """Calls SNOWFLAKE.CORTEX.DATA_AGENT_RUN and extracts (sql, cols, rows,
     narrative) from the response. Raises on any unexpected shape so the
     caller can fall back to the AI_COMPLETE path."""
-    successful_turns = [h for h in (history or []) if h.get("sql")]
+    successful_turns = [h for h in (history or []) if not h.get("error")]
     text = question
     if successful_turns:
         context = "; ".join(f"Q: {h['question']}" for h in successful_turns[-5:])
@@ -104,8 +104,18 @@ def _ask_via_agent(cur, agent_fqn, question, history=None):
                         ]
                 break
 
-    if sql is None or cols is None or rows is None:
-        raise ValueError("DATA_AGENT_RUN response did not contain a completed SQL tool result")
+    if sql is None:
+        # The agent answered without needing to run SQL (e.g. an opinion/
+        # advice question like "what would you suggest to improve this?").
+        # That's a legitimate response, not a failure -- don't fall back to
+        # AI_COMPLETE, which would force-generate SQL for a non-SQL question.
+        narrative = "\n\n".join(narrative_parts).strip()
+        if not narrative:
+            raise ValueError("DATA_AGENT_RUN response contained neither SQL nor a text answer")
+        return None, None, None, narrative
+
+    if cols is None or rows is None:
+        raise ValueError("DATA_AGENT_RUN response referenced SQL but no completed tool result was found")
 
     narrative = "\n\n".join(narrative_parts).strip()
     return sql, cols, rows, narrative
@@ -220,11 +230,24 @@ Question: {question}
 If the question is a follow-up (e.g. "and by region?", "what about last month?"),
 resolve it using the previous turns above into a complete, standalone query.
 
-Reply with ONLY the SQL query, no explanation, no markdown fences."""
+If the question does NOT require querying data (e.g. it's an opinion,
+explanation, or "what would you suggest" question), do not invent a query --
+reply with exactly `NO_SQL_NEEDED:` followed by a short plain-text answer.
+
+Otherwise, reply with ONLY the SQL query, no explanation, no markdown fences."""
 
     escaped = prompt.replace("'", "''")
     cur.execute(f"SELECT SNOWFLAKE.CORTEX.AI_COMPLETE('{AI_MODEL}', '{escaped}')")
     raw = cur.fetchone()[0]
+    raw_text = raw.strip()
+    if raw_text.startswith('"') and raw_text.endswith('"'):
+        try:
+            raw_text = json.loads(raw_text)
+        except (ValueError, TypeError):
+            pass
+    if raw_text.strip().startswith("NO_SQL_NEEDED:"):
+        return None, None, None, raw_text.split("NO_SQL_NEEDED:", 1)[1].strip()
+
     sql = _extract_sql(raw)
 
     cur.execute(sql)
