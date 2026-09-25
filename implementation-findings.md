@@ -541,3 +541,98 @@ browser):
    correctly regardless of which persona role is active -- with zero code
    changes needed to add that capability once the view itself was extended.
 
+## Finding 10: MCP connectors (Jira) work fine on a trial account; UDF-based
+## custom tools requiring outbound network access do not
+
+Two mechanisms both let an agent reach outside Snowflake, and this account's
+trial-tier restriction affects only one of them:
+
+- `CREATE EXTERNAL ACCESS INTEGRATION` (needed for any Python UDF/stored
+  procedure that calls an external HTTP API, e.g. a weather API) fails
+  outright with `External access is not supported for trial accounts.` This
+  is a hard account-tier restriction, not a role/permission issue -- it was
+  tested as `ACCOUNTADMIN` and failed identically. This blocked the
+  originally-planned weather custom-tool (Python UDF + `requests` +
+  Open-Meteo), which was abandoned rather than worked around with a fake
+  network call; the orphaned `WEATHER_API_NETWORK_RULE` was created then
+  dropped once the integration attempt failed.
+- `CREATE API INTEGRATION ... API_PROVIDER = external_mcp` (needed for MCP
+  connectors, including the Jira one below) is a **separate** mechanism and
+  is NOT subject to the same restriction -- it succeeded immediately on the
+  same trial account, same role, same session. MCP connectors route through
+  Snowflake's own managed OAuth/proxy layer rather than an outbound call
+  initiated from inside a UDF, which is presumably why the trial-tier
+  restriction doesn't apply to them.
+
+Practical implication for future work on a trial account: any "custom
+function-calling tool" idea that needs the tool itself to reach an external
+API (weather, FX rates, carrier tracking, etc.) needs either a paid account
+or a Snowflake-native data source instead. Adding an existing third-party
+service as an MCP connector (Jira, GitHub, Linear, Salesforce, Glean, or a
+custom OAuth MCP server) has no such restriction.
+
+### Jira MCP connector (issue filing from the agent)
+
+Added a real Atlassian MCP connector so the agent can file a Jira ticket
+when a user reports a data problem, using OAuth Dynamic Client Registration
+(no manual client ID/secret -- only a callback domain registered on the
+Atlassian side, done by the user separately in Atlassian admin settings):
+
+```sql
+CREATE API INTEGRATION JIRA_MCP_API_INTEGRATION
+  API_PROVIDER = external_mcp
+  API_ALLOWED_PREFIXES = ('https://mcp.atlassian.com')
+  API_USER_AUTHENTICATION = (
+    TYPE = OAUTH_DYNAMIC_CLIENT,
+    OAUTH_RESOURCE_URL = 'https://mcp.atlassian.com/v1/mcp'
+  )
+  ENABLED = TRUE;
+
+CREATE EXTERNAL MCP SERVER SC_DEMO.APP.ATLASSIAN_MCP_SERVER
+  WITH DISPLAY_NAME = 'Atlassian (Jira & Confluence)'
+  URL = 'https://mcp.atlassian.com/v1/mcp'
+  API_INTEGRATION = JIRA_MCP_API_INTEGRATION;
+```
+
+`USAGE` on both the MCP server and the API integration was granted to
+`SUPPLY_CHAIN_APP_ROLE` and the three persona roles. The agent's
+`instructions.system` was extended with a scoped exception to the
+guardrail added in Finding 9: filing a Jira ticket about a reported data
+problem is explicitly in scope (it directly supports the governed-data
+mission), naming the target project by key (`KAN`) so the agent doesn't
+invent one, and telling it to confirm the ticket summary with the user
+before creating it and to never use Jira as a general task manager. The
+`mcp_servers` block referencing the new server was added alongside the
+existing `cortex_analyst_text_to_sql` tool:
+
+```yaml
+mcp_servers:
+  - server_spec:
+      name: "SC_DEMO.APP.ATLASSIAN_MCP_SERVER"
+```
+
+### Two-sided OAuth: Snowflake-side wiring is not enough
+
+Creating the MCP server object makes the tool *discoverable* to the agent,
+but a human still has to complete a **separate** OAuth consent step before
+the agent can actually invoke it -- there is no SQL/CLI command for this,
+it's a per-user browser flow. Confirmed empirically: asking the live agent
+to "file a Jira ticket about this issue" produced a correct, graceful
+response -- it investigated the reported metric first (and found the real
+value did not match what was reported, a good sign the tool is genuinely
+checking rather than rubber-stamping), drafted the exact ticket
+summary/description, then explicitly said *"the Atlassian (Jira) tool is
+not currently authenticated... You'll need to authenticate with the
+Atlassian server first (this can be done in the Snowflake CoWork UI)"*
+instead of failing silently or fabricating a fake ticket ID. This is the
+correct failure mode for an unauthenticated tool and required no special
+handling -- the model reasoned about the tool's own status on its own.
+
+To complete authentication: in Snowsight, the connecting user opens
+**AI & ML -> Agents** (or the CoWork/Snowflake Intelligence surface),
+opens the agent or the **Tools and Connectors** settings, finds the
+Atlassian connector, and completes the OAuth consent screen it presents
+(redirects to Atlassian to log in and approve). This has to be done once
+per user who wants the agent to file tickets on their behalf; it cannot be
+scripted from this CLI session.
+
