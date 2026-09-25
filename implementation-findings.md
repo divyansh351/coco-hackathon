@@ -340,4 +340,67 @@ work not attempted here.
 hand-built view in place), and the duplicate `SC_DEMO.ANALYTICS_AUTO` schema
 was dropped -- there is now exactly one source of truth, not two.
 
+## Finding 7 -- two latent template-engine bugs, masked for months by a naming coincidence, surfaced only by onboarding a genuinely different-structured source
+
+Every prior validation run (Findings 1-6) mapped the same `SC_DEMO.RAW`
+dataset, whose physical column names happen to equal the ontology's logical
+attribute names almost everywhere (`ORDER_DATE`, `ORDERED_QTY`,
+`DELIVERY_DATE`, ...). Building two alternate sample sources with genuinely
+different naming conventions (`SC_DEMO.RAW_LEGACY_ERP`,  `SC_DEMO.RAW_3PL` --
+see `SAMPLE_SOURCES.md`) to demo the pipeline's robustness immediately broke
+that coincidence and surfaced two real, previously-undetected bugs:
+
+**1. Pass 1's structural candidate scoring over-penalized a table for having
+*any* undeclared FK, crowding correct matches out of the top-N LLM window.**
+`score_table_against_entity()` gave a table a flat 0.1 (vs. up to 0.4 for a
+zero-FK table) whenever it had more foreign keys than the ontology entity
+declares -- even a single legitimate one, like `MATERIAL_MASTER`'s own
+`PRIM_VEND_ID` FK to `VENDOR_MASTER` (the Part entity declares zero
+`foreign_keys` in the ontology, since that relationship isn't part of its
+declared model -- same root cause as Finding 3, one phase earlier). Three
+zero-FK tables (`VENDOR_MASTER`, `PLANT_MASTER`, `CUST_MASTER`) each scored
+0.5 against "Part" purely from the FK-count bonus, edging the correct
+`MATERIAL_MASTER` (0.35) out of the top-3 candidates passed to the LLM pass
+entirely -- which then correctly reported "none of the 3 given options
+represent a Part" and rejected the mapping. **Fix:** decay the penalty
+smoothly with FK count instead of flooring immediately
+(`max(0.1, 0.4 - 0.15 * actual_fk_count)`), and widened the LLM candidate
+window from top 3 to top 5 as a safety net against future scoring
+imperfections.
+
+**2. Facts/metrics that cross-reference another table's *dimension* (not a
+fact) resolved to the physical column instead of the logical name.**
+`resolve_expr()`'s `{{Entity.attribute}}` placeholder always resolves to
+`alias.physical_column` -- correct when compiling a fact's own row-level SQL
+against its base table, but wrong when the reference is to a *different*
+table's already-declared dimension/time_dimension, since Snowflake resolves
+cross-table references in fact/metric expressions by the target's LOGICAL
+member name, not its raw column. Two concrete manifestations, both silently
+correct in `SC_DEMO.RAW` only because `physical_column == logical_name`
+there:
+  - `is_in_full`'s cross-table reference to `DemandLine.ordered_qty` (via the
+    `cross_refs` passthrough-fact mechanism) baked in `po_item.ord_qty`
+    instead of the passthrough fact's own logical name `po_item.ordered_qty`.
+    **Fix:** `resolve_facts_by_table()` now rewrites the resolved expr to use
+    each `cross_refs` entry's logical name instead of its physical column --
+    a general fix, not a one-off template edit.
+  - `lead_time_days` and `order_cycle_time_days` had the identical bug
+    hand-written directly into their `expr_template` (`{{Demand.order_date}}`
+    instead of `{{Demand}}.order_date`), with no `cross_refs` declaration to
+    hook the general fix onto. **Fix:** edited both templates to the
+    literal-suffix pattern (`{{Entity}}.logical_name`) already used correctly
+    elsewhere for same-purpose references (e.g. `{{Transaction}}.delivery_date`).
+    Confirmed empirically that Snowflake correctly resolves this even across
+    a 2-hop relationship chain (`lead_time_days`'s
+    Transaction -> DemandLine -> Demand reference) -- multi-hop logical-name
+    resolution in row-level facts is supported, multi-hop *physical* cross-
+    references are not.
+
+**Practical implication:** any new metric/fact template that references
+another entity's dimension or time_dimension by attribute must use the
+`{{Entity}}.logical_name` literal-suffix pattern, never
+`{{Entity.attribute}}` -- the latter is only correct for facts (physical
+columns) or same-table self-references. Both sample sources were re-verified
+after these fixes: 13/13 verified queries and all sanity-bound checks PASS
+for each.
 
