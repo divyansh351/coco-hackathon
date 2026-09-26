@@ -17,6 +17,24 @@ import re
 
 AI_MODEL = "claude-sonnet-4-5"
 AGENT_FQN = "SC_DEMO.APP.SUPPLY_CHAIN_AGENT"
+REGISTRY_FQN = "SC_DEMO.APP.SOURCE_AGENT_REGISTRY"
+
+
+def _resolve_agent_fqn(cur, view_fqn):
+    """Onboarded sources each get their own agent (see
+    framework/agent_template.py); this looks up which one to call for the
+    selected view, falling back to the original hardcoded canonical agent
+    if the view isn't in the registry (the canonical view predates the
+    registry and was never inserted into it)."""
+    escaped_view = view_fqn.replace("'", "''")
+    try:
+        cur.execute(f"SELECT agent_fqn FROM {REGISTRY_FQN} WHERE view_fqn = '{escaped_view}'")
+        row = cur.fetchone()
+        if row:
+            return row[0]
+    except Exception:
+        pass
+    return AGENT_FQN
 
 
 def list_semantic_views(cur, database):
@@ -284,10 +302,15 @@ Otherwise, reply with ONLY the SQL query, no explanation, no markdown fences."""
 # Public entry point
 # ---------------------------------------------------------------------------
 
-def ask(cur, view_fqn, question, history=None, agent_fqn=AGENT_FQN):
+def ask(cur, view_fqn, question, history=None, agent_fqn=None):
     """Returns (generated_sql, result_columns, result_rows, narrative).
-    Tries the real Cortex Agent (DATA_AGENT_RUN) first; falls back to the
-    AI_COMPLETE prompt-engineering approach if the agent call fails."""
+    Tries the real Cortex Agent (DATA_AGENT_RUN) first -- resolving which
+    agent to call from SOURCE_AGENT_REGISTRY if `agent_fqn` isn't given
+    explicitly, so onboarded sources are routed to their own dedicated
+    agent instead of always hitting the canonical one -- then falls back to
+    the AI_COMPLETE prompt-engineering approach if the agent call fails."""
+    if agent_fqn is None:
+        agent_fqn = _resolve_agent_fqn(cur, view_fqn)
     try:
         return _ask_via_agent(cur, agent_fqn, question, history=history)
     except Exception:

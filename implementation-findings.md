@@ -636,3 +636,81 @@ Atlassian connector, and completes the OAuth consent screen it presents
 per user who wants the agent to file tickets on their behalf; it cannot be
 scripted from this CLI session.
 
+## Finding 11: Onboarding now auto-creates a dedicated agent per source
+## (one agent per view, not one agent with many tools)
+
+Onboarding a new source used to leave "wire it into the chat agent" as a
+manual, optional step (either replace the canonical agent's tool target, or
+hand-add a second tool to it). Both `app/onboard_ui.py`'s `run_onboarding()`
+and `framework/onboard.py`'s CLI `main()` now do this automatically as the
+final pipeline step, via a new shared module `framework/agent_template.py`.
+
+### Design choice: one agent per source, not one agent with multiple tools
+
+Considered giving the existing canonical agent a second
+`cortex_analyst_text_to_sql` tool pointed at the new view instead. Rejected
+because tool selection is driven entirely by the tool's own name/description
+text, which the orchestration model reads to decide which tool a question
+needs -- two tools that both plausibly cover "suppliers"/"parts" (the same
+shared ontology, different physical source) create real ambiguity risk, and
+that risk lands on the existing, already-relied-on canonical agent. A
+dedicated single-tool agent per source has zero ambiguity (nothing to
+choose between) and zero risk to the canonical agent, at the cost of not
+being able to answer one question that spans two sources at once -- judged
+a rare case worth trading away for reliability.
+
+### What `agent_template.py` generates and deploys
+
+`build_agent_yaml(view_fqn, tool_name)` returns the spec text;
+`deploy_agent_for_view(cur, view_fqn, agent_db, view_name, status_cb=...)`
+does the actual `CREATE OR REPLACE AGENT ... FROM SPECIFICATION $$...$$`
+(confirmed via docs to be real SQL DDL, runnable with a plain `cur.execute()`
+-- no CLI/REST dependency needed inside the in-process app pipeline), then
+grants `USAGE`/`SELECT` to `SUPPLY_CHAIN_APP_ROLE` + the 3 persona roles on
+both the new agent and the new view (same grants-reset-on-redeploy pattern
+as Findings 8/9 -- always re-issued, every time), then registers
+`view_fqn -> agent_fqn` in a new table, `SC_DEMO.APP.SOURCE_AGENT_REGISTRY`.
+
+Every generated agent carries the same STRICT SCOPE BOUNDARY guardrail
+(Finding 9) and the same Jira MCP ticket-filing capability (Finding 10) as
+the hand-authored canonical agent -- re-scoped to that source's one view,
+same Jira project (`KAN`), same Atlassian MCP server. Deliberately does
+**not** use PyYAML (not installed in the app's container image, and not
+guaranteed for a local CLI run either -- confirmed missing in this session's
+own Python environment): instructions are emitted as YAML block-literal
+scalars (`|`), which need no character escaping, instead of quoted strings
+built with a YAML library.
+
+### Real gap this closes: the chat app's view dropdown used to be cosmetic
+
+Before this, `app/qa.py`'s `ask()` always called the same hardcoded
+`AGENT_FQN` (`SC_DEMO.APP.SUPPLY_CHAIN_AGENT`) regardless of which semantic
+view was selected in the sidebar dropdown -- the dropdown selection only
+took effect on the rare path where the agent call raised an exception and
+the code fell back to `_ask_via_ai_complete` (which does honor `view_fqn`).
+In practice this meant selecting a non-canonical onboarded view and asking
+a plausible-sounding supply-chain question would silently answer from the
+**wrong** view's data, since the agent's own tool was hardcoded elsewhere.
+`ask()` now resolves `agent_fqn` from `SOURCE_AGENT_REGISTRY` by `view_fqn`
+before falling back to the hardcoded default (kept only for the canonical
+view, which predates the registry and is also explicitly registered in it
+for consistency) -- so the dropdown selection now genuinely determines both
+the view and the agent.
+
+### Verified end-to-end, then torn down for a clean re-test
+
+Ran the full CLI pipeline once against `SC_DEMO.RAW_LEGACY_ERP` ->
+`SC_DEMO.ANALYTICS_LEGACY_ERP.LEGACY_ERP_ANALYTICS` +
+`SC_DEMO.APP.LEGACY_ERP_ANALYTICS_AGENT`: validation gate PASSed, the
+deployed agent's spec had both the guardrail and `mcp_servers` entry
+correct, a `DATA_AGENT_RUN` question ("Which vendor has the longest average
+lead time?") correctly invoked the new agent's own tool and answered with
+vendor terminology (proving it queried the legacy-ERP view, not the
+canonical one), and a math question was correctly declined by the same
+guardrail. Then dropped all of it (`DROP AGENT`, `DROP SCHEMA
+SC_DEMO.ANALYTICS_LEGACY_ERP`, deleted the registry row) so
+`SC_DEMO.RAW_LEGACY_ERP`'s source tables are untouched and the same
+onboarding can be run again cleanly through the app's own **Onboard
+Source** form.
+
+

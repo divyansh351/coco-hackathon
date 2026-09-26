@@ -22,6 +22,7 @@ import sf_connect
 import extract_metadata
 import map_ontology
 import instantiate_template as it
+import agent_template
 
 FRAMEWORK_DIR = os.path.dirname(__file__)
 
@@ -118,6 +119,12 @@ def main(args):
 
     with open(os.path.join(run_dir, "validation_report.md"), "w", encoding="utf-8") as f:
         f.write("\n".join(report_lines))
+
+    print(f"[1e] Deploying a dedicated agent for {view_fqn} ...")
+    agent_fqn = agent_template.deploy_agent_for_view(
+        cur, view_fqn, args.target_db, args.view_name, status_cb=print
+    )
+    print(f"[1e] Agent deployed: {agent_fqn}")
 
     cur.close()
     conn.close()

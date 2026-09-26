@@ -170,24 +170,39 @@ SELECT * FROM SEMANTIC_VIEW(MY_DB.ANALYTICS.MY_ANALYTICS_VIEW
 2. In the sidebar, the **Semantic view** dropdown lists every semantic view
    in the selected database -- pick your new one.
 3. Ask questions in plain English. The app first tries the real Cortex Agent
-   (`SC_DEMO.APP.SUPPLY_CHAIN_AGENT` by default -- see below to point it at
-   your new view) and falls back to a prompt-engineered `AI_COMPLETE` path if
-   that fails for any reason.
+   registered for the selected view in `SOURCE_AGENT_REGISTRY` (see below --
+   onboarding creates and registers this automatically) and falls back to a
+   prompt-engineered `AI_COMPLETE` path if that fails for any reason.
 
-### Wire it into the Cortex Agent (optional, for governed conversational access)
+### The onboarding pipeline already creates a dedicated agent for you
 
-The deployed agent's `cortex_analyst_text_to_sql` tool is bound to one
-semantic view at a time. To make the agent answer questions against your new
-view too, either:
-- **Replace** the existing tool's `semantic_view` target if the new view
-  fully supersedes the old one (e.g. you re-ran onboarding to add entities to
-  the *same* canonical view -- this is what already happened when `Inventory`
-  was added this session), or
-- **Add a second tool** to the agent spec pointing at the new view, if you
-  want both queryable side by side. Edit `cortex_project/cortex_agent.agent.yaml`, add a new
-  `tool_spec`/`tool_resources` entry (see `app/qa.py`'s docstring and
-  `implementation-findings.md` Finding 6 for the exact YAML shape), then
-  redeploy via `cortex agent-studio agent-deploy --file-path cortex_agent.agent.yaml --fqn <agent_fqn>`.
+Both onboarding methods (App UI and CLI) automatically deploy a single-tool
+Cortex Agent bound to the new view as the final pipeline step -- you don't
+need to hand-edit any agent YAML. See `framework/agent_template.py` for the
+generator; `implementation-findings.md` Finding 11 for the full design
+rationale (one agent per source, vs. one agent with multiple tools).
+
+What happens automatically:
+- A new agent `<target_db>.APP.<view_name>_AGENT` is created, with the same
+  STRICT SCOPE BOUNDARY guardrail (Finding 9) and the same Jira MCP
+  ticket-filing capability (Finding 10) as the canonical `SUPPLY_CHAIN_AGENT`
+  -- just re-scoped to this source's one semantic view.
+- `USAGE`/`SELECT` are granted to `SUPPLY_CHAIN_APP_ROLE` and the 3 persona
+  roles on both the new agent and the new semantic view.
+- The mapping `view_fqn -> agent_fqn` is written to
+  `SC_DEMO.APP.SOURCE_AGENT_REGISTRY`, which `app/qa.py`'s `ask()` reads to
+  decide which agent to call for whichever semantic view is selected in the
+  chat app's sidebar dropdown -- so the dropdown selection now actually
+  determines both the view **and** the agent, with no app code change needed
+  for future sources.
+
+If you need a single agent that can reason across *two* sources at once
+(rare -- most questions are scoped to one source), that's a deliberate
+manual step, not something onboarding does for you: add a second
+`cortex_analyst_text_to_sql` tool to an existing agent's spec pointing at
+the second view (see `app/qa.py`'s docstring and Finding 6 for the exact
+YAML shape), being careful to write mutually-exclusive tool descriptions so
+the orchestration model doesn't have to guess between them.
 
 ### Grant access to a persona / team
 

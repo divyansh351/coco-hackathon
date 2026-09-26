@@ -14,8 +14,10 @@ import streamlit as st
 import extract_metadata
 import map_ontology
 import instantiate_template as it
+import agent_template
 
 FRAMEWORK_DIR = os.path.join(os.path.dirname(__file__), "..", "framework")
+PERSONA_ROLES = ["SUPPLY_CHAIN_APP_ROLE", "SC_PLANNING_ROLE", "SC_PROCUREMENT_ROLE", "SC_LOGISTICS_ROLE"]
 
 
 def load_json(name):
@@ -78,6 +80,8 @@ def run_onboarding(cur, source_db, source_schema, target_db, target_schema, view
         except Exception as e:
             vq_results.append((vq["name"], f"FAIL ({e})"))
 
+    agent_fqn = agent_template.deploy_agent_for_view(cur, view_fqn, target_db, view_name, status_cb=status)
+
     return {
         "manifest": manifest,
         "mapping": mapping,
@@ -88,6 +92,7 @@ def run_onboarding(cur, source_db, source_schema, target_db, target_schema, view
         "metrics": metrics_out,
         "verified_queries": vq_results,
         "dropped_relationships": result.get("dropped_relationships", []),
+        "agent_fqn": agent_fqn,
     }
 
 
@@ -154,6 +159,11 @@ def render_tab(get_cursor):
 
     if result["dropped_relationships"]:
         st.info(f"Dropped {len(result['dropped_relationships'])} redundant (denormalized) relationship(s).")
+
+    st.success(
+        f"Deployed a dedicated agent for this source: `{result['agent_fqn']}` -- "
+        "select its semantic view in the Ask Questions sidebar to chat with it."
+    )
 
     st.markdown("**Verified query round-trip**")
     vq_df = pd.DataFrame(result["verified_queries"], columns=["query", "result"])
