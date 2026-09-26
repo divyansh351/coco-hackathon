@@ -713,4 +713,42 @@ SC_DEMO.ANALYTICS_LEGACY_ERP`, deleted the registry row) so
 onboarding can be run again cleanly through the app's own **Onboard
 Source** form.
 
+## Finding 12: object-level grants alone don't make an object visible --
+## the containing schema/database need USAGE too
+
+Ran onboarding a second time (this time from the locally-run app, PAT auth
+as `ACCOUNTADMIN`) and the new semantic view didn't show up in the
+**deployed** app's dropdown at all, even though `deploy_agent_for_view()`
+had granted `SELECT ON SEMANTIC VIEW` and `USAGE ON AGENT` to
+`SUPPLY_CHAIN_APP_ROLE` (the role the deployed SPCS container runs as).
+`SHOW GRANTS ON SCHEMA SC_DEMO.ANALYTICS_LEGACY_ERP` showed only
+`OWNERSHIP` to `ACCOUNTADMIN` -- nothing for any of the 4 app/persona
+roles.
+
+Snowflake's privilege model requires the *whole chain* -- `USAGE` on the
+database, `USAGE` on the schema, **and** the object-level privilege -- to
+see or access an object. An object-level `SELECT` grant with no `USAGE` on
+its containing schema doesn't produce a permission error; the object is
+just silently absent from `SHOW`/listing commands run under that role, as
+if it didn't exist. This is a different failure mode from the
+grants-reset-on-redeploy pattern (Findings 8/9): that one strips grants
+that already existed; this one is grants that were simply never issued in
+the first place, because schema-level access wasn't part of the original
+grant list.
+
+**Fix**: `deploy_agent_for_view()` now also grants `USAGE ON DATABASE` and
+`USAGE ON SCHEMA` (parsed from `view_fqn`) to all 4 roles, alongside the
+object-level grants it already issued. Applied retroactively to the
+already-onboarded `SC_DEMO.ANALYTICS_LEGACY_ERP` schema so it didn't need
+to be re-onboarded.
+
+**Verification pattern worth reusing**: confirmed the fix by actually
+switching role and checking visibility, not just checking `SHOW GRANTS`
+output for the expected rows -- `USE ROLE SUPPLY_CHAIN_APP_ROLE; USE
+SECONDARY ROLES NONE; SHOW SEMANTIC VIEWS IN DATABASE SC_DEMO;` and
+confirming the new view actually appears in that list. `SHOW GRANTS`
+listing the right privilege rows is necessary but not sufficient evidence
+of access -- the schema-level gap above would have looked identical from a
+`SHOW GRANTS ON SEMANTIC VIEW` check alone.
+
 

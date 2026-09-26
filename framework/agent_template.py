@@ -105,8 +105,18 @@ def deploy_agent_for_view(cur, view_fqn, agent_db, view_name, warehouse="COMPUTE
     cur.execute(f"CREATE SCHEMA IF NOT EXISTS {agent_db}.APP")
     cur.execute(f"CREATE OR REPLACE AGENT {agent_fqn} FROM SPECIFICATION $$\n{spec_yaml}\n$$")
 
-    status("Granting agent + view access to app/persona roles ...")
+    status("Granting agent + schema + view access to app/persona roles ...")
+    view_db, view_schema, _ = view_fqn.split(".")
     for role in PERSONA_ROLES:
+        # USAGE on the view's own database/schema is required in addition to
+        # the object-level SELECT below -- Snowflake hides an object entirely
+        # from a role that lacks USAGE on its containing schema, regardless
+        # of any object-level grant (a real gap found testing this: the
+        # semantic view had SELECT granted but was still invisible to
+        # SUPPLY_CHAIN_APP_ROLE because nothing had granted USAGE on the
+        # new schema itself).
+        cur.execute(f"GRANT USAGE ON DATABASE {view_db} TO ROLE {role}")
+        cur.execute(f"GRANT USAGE ON SCHEMA {view_db}.{view_schema} TO ROLE {role}")
         cur.execute(f"GRANT USAGE ON AGENT {agent_fqn} TO ROLE {role}")
         cur.execute(f"GRANT SELECT ON SEMANTIC VIEW {view_fqn} TO ROLE {role}")
 
