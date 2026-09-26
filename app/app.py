@@ -29,9 +29,30 @@ DEFAULT_ROLE = "SUPPLY_CHAIN_APP_ROLE"
 
 
 @st.cache_resource
-def get_cursor():
+def _cached_cursor():
     conn = sf_session.get_connection()
     return conn.cursor()
+
+
+def get_cursor():
+    """Streamlit reruns this whole script on every interaction, but
+    @st.cache_resource keeps the underlying connection alive across reruns
+    for as long as the SPCS container process lives -- which is much longer
+    than a Snowflake session token's lifetime. Without a liveness check,
+    every rerun after the token expires hands back the same dead connection
+    and every query fails with 'Authentication token has expired.' Probe
+    the cached connection cheaply and transparently reconnect if it's dead,
+    so the app self-heals instead of requiring a redeploy/restart."""
+    cur = _cached_cursor()
+    try:
+        cur.execute("SELECT 1")
+    except Exception:
+        _cached_cursor.clear()
+        cur = _cached_cursor()
+        # The fresh connection starts back at its default role; forget the
+        # previously-applied persona so apply_persona() re-issues USE ROLE.
+        st.session_state.pop("_active_role", None)
+    return cur
 
 
 def apply_persona(cur, persona):
