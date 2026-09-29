@@ -751,4 +751,32 @@ listing the right privilege rows is necessary but not sufficient evidence
 of access -- the schema-level gap above would have looked identical from a
 `SHOW GRANTS ON SEMANTIC VIEW` check alone.
 
+## Finding 13: correction -- the Jira MCP tool-approval "error" is benign;
+## ticket filing actually works end-to-end
+
+Findings 10-12 (and a long troubleshooting session) concluded the Jira MCP
+connector was blocked by a genuine Snowflake platform bug: clicking
+**Allow** on the `atlassian_jira_confluence_...` tool-use permission prompt
+in Snowsight repeatedly produced `permission_decision references
+tool_use_id "..." which does not correspond to a pending tool_use;
+ignoring`, reproduced with a fresh ID every time across a full OAuth reset,
+a brand-new browser tab, and multiple agent-instruction rewrites. Every
+diagnostic pointed to a server-side approval-handshake bug.
+
+**That conclusion was wrong.** The user checked Jira directly and the
+ticket had actually been created -- correct project (`KAN`), correct
+summary/description, exactly once (no duplicates from the earlier
+attempts). The error message is a benign artifact: the underlying tool
+call succeeds, but Snowsight's UI separately reports a stale/duplicate
+permission-decision signal as an error *after* the real one already went
+through. The visible "error" does not mean the action failed.
+
+**Lesson**: for an MCP tool with real side effects, verify success against
+the *actual third-party system* (here, Jira itself), not just the calling
+UI's own status/error display -- the UI's error state and the tool's real
+outcome can disagree. This also means the earlier recommendation to avoid
+live-demoing ticket filing was overly cautious; the feature genuinely
+works, the on-screen error is cosmetic noise to narrate past (or ignore)
+rather than a reason to route around the feature in a demo.
+
 
